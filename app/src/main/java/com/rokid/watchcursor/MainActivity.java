@@ -170,14 +170,15 @@ public final class MainActivity extends Activity {
                 state("Включи Bluetooth на часах", Color.RED);
                 return;
             }
-            if (!adapter.isMultipleAdvertisementSupported()) {
-                state("BLE Peripheral не поддерживается", Color.RED);
-                log("Android API: isMultipleAdvertisementSupported() = false");
-                return;
-            }
+            // Do not reject the watch solely because multiple concurrent advertisements
+            // are unsupported. Test the actual Android advertiser and GATT APIs.
+            final boolean multipleAdvertise = adapter.isMultipleAdvertisementSupported();
+            log("Multiple advertising: " + multipleAdvertise + "; trying direct BLE advertise");
             advertiser = adapter.getBluetoothLeAdvertiser();
             if (advertiser == null) {
-                state("BLE Advertiser отсутствует", Color.RED);
+                state("BLE Advertiser = null", Color.RED);
+                log("Multiple advertising: " + multipleAdvertise
+                        + ". Прошивка не предоставляет BLE-передатчик Android-приложению.");
                 return;
             }
             gatt = manager.openGattServer(this, callbacks);
