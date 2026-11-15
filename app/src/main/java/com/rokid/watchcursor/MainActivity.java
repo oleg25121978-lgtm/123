@@ -62,6 +62,13 @@ public final class MainActivity extends Activity {
     private boolean sending;
     private TextView status;
     private TextView detail;
+    private final Runnable heartbeat = new Runnable() {
+        @Override public void run() {
+            if (!started || !subscribed) return;
+            send(new byte[]{0}, "PING");
+            handler.postDelayed(this, 5000);
+        }
+    };
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -197,6 +204,7 @@ public final class MainActivity extends Activity {
                 state("BLE соединено. Жду подписку...", Color.YELLOW);
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 subscribed = false;
+                handler.removeCallbacks(heartbeat);
                 sending = false;
                 connectedDevice = null;
                 out.clear();
@@ -234,6 +242,8 @@ public final class MainActivity extends Activity {
                     state("ROKID ПОДКЛЮЧЁН ✓", Color.GREEN);
                     log("Проведи пальцем по тачпаду часов.");
                     send(new byte[]{0}, "PING");
+                    handler.removeCallbacks(heartbeat);
+                    handler.postDelayed(heartbeat, 5000);
                 } else {
                     state("Подписка BLE отключена", Color.YELLOW);
                 }
@@ -279,6 +289,7 @@ public final class MainActivity extends Activity {
     @SuppressWarnings("MissingPermission")
     private void stopBle() {
         started = false;
+        handler.removeCallbacks(heartbeat);
         subscribed = false;
         sending = false;
         connectedDevice = null;
