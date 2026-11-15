@@ -27,6 +27,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
 import android.os.SystemClock;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -89,11 +90,22 @@ public final class MainActivity extends Activity {
         column.addView(button("Тест: курсор вправо", () -> move(35, 0)));
         column.addView(button("Выбрать", () -> send(new byte[]{4, 0}, "Клик")));
         column.addView(button("Назад", () -> send(new byte[]{8, 0}, "Назад")));
+        column.addView(button("Home на очках", () -> send(new byte[]{8, 1}, "Home → Rokid (08 01)")));
+        column.addView(label("Физическая Home может перехватываться системой часов. Если приложение не видит нажатия, передать его по BLE нельзя.", 12, Color.LTGRAY));
         detail = label("На очках нужен RokidKey Receiver с включённой службой Accessibility.", 12, Color.LTGRAY);
         column.addView(detail);
         setContentView(scroll);
         log("Модель: " + Build.MANUFACTURER + " / " + Build.MODEL);
         log("Android SDK: " + Build.VERSION.SDK_INT);
+    }
+
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            log("Часы передали кнопку: code=" + event.getKeyCode()
+                    + " (" + KeyEvent.keyCodeToString(event.getKeyCode()) + ")");
+            // No interception: the watch retains its normal system button behavior.
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     private int dp(int px) { return Math.round(px * getResources().getDisplayMetrics().density); }
