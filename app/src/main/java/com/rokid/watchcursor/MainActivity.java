@@ -328,8 +328,12 @@ public final class MainActivity extends Activity {
             if (message != null) log(message + ": сначала дождись подключения.");
             return;
         }
-        if (out.size() >= 40) return;
+        if (out.size() >= 40) {
+            if (message != null) log("Очередь BLE заполнена: " + message);
+            return;
+        }
         out.add(Arrays.copyOf(packet, packet.length));
+        if (message != null && !"PING".equals(message)) log("BLE команда в очереди: " + message);
         flush();
     }
 
