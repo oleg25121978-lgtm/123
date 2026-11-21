@@ -53,7 +53,7 @@ class YandexNotificationService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null || !isYandex(sbn.packageName)) return
         if (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT == 0) return
-        if (sbn.notification.category != Notification.CATEGORY_NAVIGATION) return
+        if (sbn.notification.category != "navigation") return
         val layout = NotificationLayoutInspector.inspect(this, sbn.notification)
         val e = sbn.notification.extras
         val parts = mutableListOf<String>()
