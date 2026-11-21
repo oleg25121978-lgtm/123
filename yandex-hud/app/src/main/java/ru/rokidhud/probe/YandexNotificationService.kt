@@ -11,7 +11,8 @@ data class NavSnapshot(
     val distance: String?,
     val street: String?,
     val rawText: String,
-    val imageIds: List<String> = emptyList()
+    val imageIds: List<String> = emptyList(),
+    val samples: List<ArrowCapture.Sample> = emptyList()
 )
 enum class Maneuver { LEFT, RIGHT, SLIGHT_LEFT, SLIGHT_RIGHT, UTURN, STRAIGHT, ROUNDABOUT, ARRIVE, UNKNOWN }
 
@@ -62,7 +63,7 @@ class YandexNotificationService : NotificationListenerService() {
         e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { parts.add(it.toString()) }
         parts.addAll(layout.texts)
         val snapshot = YandexNotificationParser.parse(sbn.packageName, parts.distinct().joinToString(" | "))
-            ?.copy(imageIds = layout.imageResourceNames)
+            ?.copy(imageIds = layout.imageResourceNames, samples = layout.samples)
         // Ignore empty notification updates; a later screen/bitmap extractor may fill the missing fields.
         if (snapshot != null) NavStore.publish(snapshot)
     }
