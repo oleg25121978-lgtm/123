@@ -64,8 +64,11 @@ class YandexNotificationService : NotificationListenerService() {
         parts.addAll(layout.texts)
         val snapshot = YandexNotificationParser.parse(sbn.packageName, parts.distinct().joinToString(" | "))
             ?.copy(imageIds = layout.imageResourceNames, samples = layout.samples)
-        // Ignore empty notification updates; a later screen/bitmap extractor may fill the missing fields.
-        if (snapshot != null) NavStore.publish(snapshot)
+        // Exact hash recognition only. An unlabeled picture never produces a turn.
+        if (snapshot != null) {
+            val recognized = snapshot.samples.mapNotNull { ArrowLabels.get(this, it.digest) }.distinct()
+            NavStore.publish(snapshot.copy(maneuver = if (recognized.size == 1) recognized.first() else snapshot.maneuver))
+        }
     }
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         if (sbn != null && isYandex(sbn.packageName)) {
