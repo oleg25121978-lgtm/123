@@ -2,6 +2,7 @@ package ru.rokidhud.probe
 
 import android.os.Handler
 import android.os.Looper
+import com.anezium.rokidbus.client.PluginRegistrationResult
 import com.anezium.rokidbus.client.plugin.NexusGuidanceGlyphs
 import com.anezium.rokidbus.client.plugin.NexusGuidancePlan
 import com.anezium.rokidbus.client.plugin.NexusGuidancePlanner
@@ -40,7 +41,11 @@ class YandexHudNexusService : NexusPluginService() {
     }
     override fun onNexusRegistrationState(result: Int) {
         // Route may already be visible when Nexus connects.
-        NavStore.current?.let { handler.post { publishRoute(it) } }
+        if (result == PluginRegistrationResult.APPROVED) {
+            NavStore.current?.let { handler.post { publishRoute(it) } }
+        } else {
+            planner.reset()
+        }
     }
     override fun onNexusActivityClosed(reason: String) { planner.reset() }
     private fun clearRoute() {
