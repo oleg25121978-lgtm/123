@@ -1,6 +1,8 @@
 package ru.rokidhud.probe
 
 import android.app.Notification
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import java.util.concurrent.CopyOnWriteArraySet
@@ -46,14 +48,30 @@ object YandexNotificationParser {
 }
 
 class YandexNotificationService : NotificationListenerService() {
+    private val handler = Handler(Looper.getMainLooper())
+    private var unreadable: Runnable? = null
+    private var activeRouteKey: String? = null
+    private fun clearRoute() {
+        unreadable?.let(handler::removeCallbacks)
+        unreadable = null
+        activeRouteKey = null
+        NavStore.publish(null)
+        HudBusBinding.release(this)
+    }
+    private fun markUnreadable(key: String) {
+        if (activeRouteKey != key || unreadable != null) return
+        val task = Runnable { clearRoute() }
+        unreadable = task
+        handler.postDelayed(task, 10000L)
+    }
     override fun onListenerConnected() {
         super.onListenerConnected()
         activeNotifications?.filter { isYandex(it.packageName) }?.lastOrNull()?.let(::onNotificationPosted)
     }
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null || !isYandex(sbn.packageName)) return
-        if (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT == 0) return
-        if (sbn.notification.category != "navigation") return
+        if (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT == 0) { markUnreadable(sbn.key); return }
+        if (sbn.notification.category != "navigation") { markUnreadable(sbn.key); return }
         val layout = NotificationLayoutInspector.inspect(this, sbn.notification)
         val e = sbn.notification.extras
         val parts = mutableListOf<String>()
@@ -69,27 +87,23 @@ class YandexNotificationService : NotificationListenerService() {
             val recognized = snapshot.samples.mapNotNull { ArrowLabels.get(this, it.digest) }.distinct()
             val next = snapshot.copy(maneuver = if (recognized.size == 1) recognized.first() else snapshot.maneuver)
             if (next.distance != null) {
+                unreadable?.let(handler::removeCallbacks)
+                unreadable = null
+                activeRouteKey = sbn.key
                 HudBusBinding.hold(this)
                 NavStore.publish(next)
-            }
-        }
+            } else markUnreadable(sbn.key)
+        } else markUnreadable(sbn.key)
     }
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        if (sbn != null && isYandex(sbn.packageName)) {
-            val active = activeNotifications?.any { isYandex(it.packageName) } == true
-            if (!active) {
-                NavStore.publish(null)
-                HudBusBinding.release(this)
-            }
-        }
+        if (sbn != null && sbn.key == activeRouteKey) clearRoute()
     }
     override fun onListenerDisconnected() {
-        NavStore.publish(null)
-        HudBusBinding.release(this)
+        clearRoute()
         super.onListenerDisconnected()
     }
     override fun onDestroy() {
-        HudBusBinding.release(this)
+        clearRoute()
         super.onDestroy()
     }
     private fun isYandex(pkg: String) = pkg == "ru.yandex.yandexmaps" || pkg == "ru.yandex.yandexnavi"
