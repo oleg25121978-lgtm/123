@@ -4,6 +4,9 @@ on:
     branches: [feature/yandex-hud]
     paths: ['yandex-hud/**', '.github/workflows/yandex-hud.yml']
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths: ['yandex-hud/**', '.github/workflows/yandex-hud.yml']
 jobs:
   build:
     runs-on: ubuntu-latest
