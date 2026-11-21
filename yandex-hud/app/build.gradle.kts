@@ -6,4 +6,7 @@ android {
 }
 kotlin { jvmToolchain(17) }
 
-dependencies { implementation("com.github.Anezium.Rokid-Nexus:bus-client:sdk-v0.27.0") }
+dependencies {
+    implementation("com.github.Anezium.Rokid-Nexus:bus-client:sdk-v0.27.0")
+    testImplementation("junit:junit:4.13.2")
+}
