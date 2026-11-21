@@ -67,14 +67,30 @@ class YandexNotificationService : NotificationListenerService() {
         // Exact hash recognition only. An unlabeled picture never produces a turn.
         if (snapshot != null) {
             val recognized = snapshot.samples.mapNotNull { ArrowLabels.get(this, it.digest) }.distinct()
-            NavStore.publish(snapshot.copy(maneuver = if (recognized.size == 1) recognized.first() else snapshot.maneuver))
+            val next = snapshot.copy(maneuver = if (recognized.size == 1) recognized.first() else snapshot.maneuver)
+            if (next.distance != null) {
+                HudBusBinding.hold(this)
+                NavStore.publish(next)
+            }
         }
     }
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         if (sbn != null && isYandex(sbn.packageName)) {
             val active = activeNotifications?.any { isYandex(it.packageName) } == true
-            if (!active) NavStore.publish(null)
+            if (!active) {
+                NavStore.publish(null)
+                HudBusBinding.release(this)
+            }
         }
+    }
+    override fun onListenerDisconnected() {
+        NavStore.publish(null)
+        HudBusBinding.release(this)
+        super.onListenerDisconnected()
+    }
+    override fun onDestroy() {
+        HudBusBinding.release(this)
+        super.onDestroy()
     }
     private fun isYandex(pkg: String) = pkg == "ru.yandex.yandexmaps" || pkg == "ru.yandex.yandexnavi"
 }
