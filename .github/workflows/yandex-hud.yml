@@ -1,0 +1,26 @@
+name: Build isolated Yandex HUD probe
+on:
+  push:
+    branches: [feature/yandex-hud]
+    paths: ['yandex-hud/**', '.github/workflows/yandex-hud.yml']
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Assemble debug APK
+        working-directory: yandex-hud
+        run: gradle --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yandex-HUD-Probe-APK
+          path: yandex-hud/app/build/outputs/apk/debug/*.apk
