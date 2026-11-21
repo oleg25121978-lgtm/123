@@ -10,7 +10,8 @@ data class NavSnapshot(
     val maneuver: Maneuver,
     val distance: String?,
     val street: String?,
-    val rawText: String
+    val rawText: String,
+    val imageIds: List<String> = emptyList()
 )
 enum class Maneuver { LEFT, RIGHT, SLIGHT_LEFT, SLIGHT_RIGHT, UTURN, STRAIGHT, ROUNDABOUT, ARRIVE, UNKNOWN }
 
@@ -50,13 +51,18 @@ class YandexNotificationService : NotificationListenerService() {
     }
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null || !isYandex(sbn.packageName)) return
+        if (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT == 0) return
+        if (sbn.notification.category != Notification.CATEGORY_NAVIGATION) return
+        val layout = NotificationLayoutInspector.inspect(this, sbn.notification)
         val e = sbn.notification.extras
         val parts = mutableListOf<String>()
         for (key in arrayOf(Notification.EXTRA_TITLE, Notification.EXTRA_TEXT, Notification.EXTRA_BIG_TEXT, Notification.EXTRA_SUB_TEXT)) {
             e.getCharSequence(key)?.toString()?.takeIf(String::isNotBlank)?.let(parts::add)
         }
         e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { parts.add(it.toString()) }
+        parts.addAll(layout.texts)
         val snapshot = YandexNotificationParser.parse(sbn.packageName, parts.distinct().joinToString(" | "))
+            ?.copy(imageIds = layout.imageResourceNames)
         // Ignore empty notification updates; a later screen/bitmap extractor may fill the missing fields.
         if (snapshot != null) NavStore.publish(snapshot)
     }
