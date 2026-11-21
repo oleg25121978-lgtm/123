@@ -6,7 +6,7 @@
 - Phone-side `NotificationListenerService` for ongoing navigation notifications from Yandex Maps / Yandex Navigator.
 - Extract distance and any plain text hints. Expand RemoteViews, inspect image nodes and render drawable samples in memory (max 128 px).
 - SHA-256 exact-image calibration: manually tag a sample **while stationary**. An unrecognized image is never guessed.
-- Separate Nexus SDK 0.27.0 plugin `yandexhud`: a launcher page plus native guidance activity using the provided distance and labeled maneuver.
+- Nexus service kept bound while live Yandex distance guidance is available and released when it ends; unreadable notifications expire after 10 seconds.\n- Separate Nexus SDK 0.27.0 plugin `yandexhud`: a launcher page plus native guidance activity using the provided distance and labeled maneuver.
 - Native glyph and distance, not mirroring the phone display. SDK handles delivery to Rokid.
 - No notifications or images uploaded anywhere. Labels are stored locally.
 
@@ -28,7 +28,7 @@ gradle --no-daemon assembleDebug
 
 APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Testing (off-road)
+## Important when installing\nDisable Yandex Maps inside the original Nexus Navigation plugin while testing Yandex HUD, otherwise the two independent plugins may publish competing navigation activities. Keep the original plugin installed and restore its switch after testing.\n\n## Testing (off-road)
 1. Install built APK on phone. Open Yandex HUD Probe, grant notification access.
 2. Start navigation in Yandex Maps; check whether the diagnostic page shows a distance and actual image.
 3. **Only after confirming the image is the actual maneuver arrow**, label it. Never label unknown or logo images.
