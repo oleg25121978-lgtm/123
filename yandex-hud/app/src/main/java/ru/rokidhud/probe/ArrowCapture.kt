@@ -24,7 +24,7 @@ object ArrowCapture {
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.TRANSPARENT)
-        val previous = drawable.bounds
+        val previous = android.graphics.Rect(drawable.bounds)
         try {
             drawable.setBounds(0, 0, w, h)
             drawable.draw(canvas)
@@ -39,7 +39,7 @@ object ArrowCapture {
         b.putInt(w); b.putInt(h)
         val pixels = IntArray(w * h)
         bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
-        pixels.forEach(b::putInt)
+        pixels.forEach { b.putInt(it) }
         val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString("") { "%02x".format(it) }
         return Sample(id, bitmap, digest)
