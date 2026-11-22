@@ -96,10 +96,6 @@ public final class HudRelayProvider extends ContentProvider {
                 requestedPermission=true;
                 a.requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 905);
             }
-            main.postDelayed(() -> {
-                Activity next=activity.get();
-                if(next!=null) ensureBluetooth(next);
-            }, 3000);
             return;
         }
         if (serverThread==null || !serverThread.isAlive()) {
