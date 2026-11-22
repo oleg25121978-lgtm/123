@@ -26,6 +26,7 @@ public final class GlassesActivity extends Activity {
     private String status="Выбери телефон";
     private String phone;
     private boolean live=false;
+    private boolean closing=false;
 
     @Override public void onCreate(Bundle bundle) {
         super.onCreate(bundle);
@@ -119,6 +120,10 @@ public final class GlassesActivity extends Activity {
                     input.readFully(bytes);
                     final Bitmap bitmap=length==0?null:BitmapFactory.decodeByteArray(bytes,0,bytes.length);
                     main.post(()->{
+                        if(closing || isFinishing() || isDestroyed()) {
+                            if(bitmap!=null && !bitmap.isRecycled())bitmap.recycle();
+                            return;
+                        }
                         if(frame!=null && frame!=bitmap && !frame.isRecycled())frame.recycle();
                         frame=bitmap;
                         lastPacket=System.currentTimeMillis();
@@ -136,7 +141,11 @@ public final class GlassesActivity extends Activity {
         }
     }
     private void update(String message){
-        main.post(()->{status=message;live=false;if(display!=null)display.invalidate();});
+        main.post(()->{
+            if(closing || isFinishing() || isDestroyed()) return;
+            status=message;live=false;
+            if(display!=null)display.invalidate();
+        });
     }
     private synchronized void disconnect(){
         reconnect=false;
@@ -144,6 +153,29 @@ public final class GlassesActivity extends Activity {
         if(reader!=null)reader.interrupt();
         active=null;reader=null;
     }
-    @Override public void onBackPressed(){disconnect();chooser();}
-    @Override public void onDestroy(){disconnect();if(frame!=null)frame.recycle();super.onDestroy();}
+    // Rokid's right-temple double tap is delivered to Activity as KEYCODE_BACK.
+    // The previous onBackPressed() called chooser(), so the app never exited.
+    private void exitHud() {
+        if (closing) return;
+        closing=true;
+        disconnect(); // close RFCOMM immediately and prevent automatic reconnect
+        finishAndRemoveTask();
+    }
+
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode()==KeyEvent.KEYCODE_BACK) {
+            if (event.getAction()==KeyEvent.ACTION_UP && !event.isCanceled()) exitHud();
+            return true; // consume both key down and key up
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override public void onBackPressed() { exitHud(); }
+    @Override public void onDestroy(){
+        closing=true;
+        disconnect();
+        if(frame!=null && !frame.isRecycled())frame.recycle();
+        frame=null;
+        super.onDestroy();
+    }
 }
