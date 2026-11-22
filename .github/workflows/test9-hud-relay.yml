@@ -1,0 +1,29 @@
+name: Build TEST9 HUD relay and Rokid receiver
+on:
+  push:
+    branches: [feature/test9-phone-only-hud]
+    paths: ['yandex-bt/**', '.github/workflows/test9-hud-relay.yml']
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Android SDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.11.1' }
+      - name: Build TEST9 bridge and Rokid receiver
+        working-directory: yandex-bt
+        run: gradle --no-daemon :relay:assembleDebug :glasses:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TEST9-HUD-Relay-Intermediate
+          path: yandex-bt/relay/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TEST9-HUD-Glasses
+          path: yandex-bt/glasses/build/outputs/apk/debug/*.apk

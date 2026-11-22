@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Build-only APK. Its classes.dex is injected into TEST9 as classes10.dex. -->
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+  <application android:label="Test9 HUD Relay (build only)" android:allowBackup="false"/>
+</manifest>
