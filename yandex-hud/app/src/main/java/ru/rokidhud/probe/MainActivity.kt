@@ -2,6 +2,7 @@ package ru.rokidhud.probe
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
@@ -87,6 +88,12 @@ class MainActivity : Activity() {
             })
         }
         root.addView(labelButtons)
+        root.addView(Button(this).apply {
+            text = "Удалить Yandex HUD"
+            setOnClickListener {
+                startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")))
+            }
+        })
         setContentView(ScrollView(this).apply { addView(root) })
     }
 
