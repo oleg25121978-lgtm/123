@@ -75,6 +75,7 @@ class YandexHudNexusService : NexusPluginService() {
             glyph = glyph,
             primary = snapshot.distance ?: "Маршрут",
             secondary = snapshot.street,
+            badge = "YHUD",
             stepKey = "${snapshot.source}|${snapshot.street}|${snapshot.maneuver}",
             imminent = false
         )
