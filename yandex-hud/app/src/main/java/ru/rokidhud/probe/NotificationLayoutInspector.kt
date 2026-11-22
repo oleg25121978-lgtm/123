@@ -30,6 +30,7 @@ object NotificationLayoutInspector {
             if (view is ImageView) {
                 val imageName = name ?: "unknown_image"
                 imageNames.add(imageName)
+                view.contentDescription?.toString()?.trim()?.takeIf { it.isNotBlank() }?.let(texts::add)
                 if (samples.size < 8) ArrowCapture.fromImage(view, imageName)?.let(samples::add)
             }
             if (view is ViewGroup) for (i in 0 until view.childCount) walk(view.getChildAt(i))
