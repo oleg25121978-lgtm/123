@@ -1,7 +1,7 @@
 name: Build TEST9 HUD relay and Rokid receiver
 on:
   push:
-    branches: [feature/test9-phone-only-hud]
+    branches: [feature/test9-phone-only-hud, feature/test9-hud-bottom-layout]
     paths: ['yandex-bt/**', '.github/workflows/test9-hud-relay.yml']
   workflow_dispatch:
 jobs:
