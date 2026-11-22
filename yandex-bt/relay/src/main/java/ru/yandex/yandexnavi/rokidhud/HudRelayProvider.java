@@ -202,10 +202,9 @@ public final class HudRelayProvider extends ContentProvider {
         try {
             Canvas c=new Canvas(bitmap);
             c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-            c.save();
-            c.scale(W/(float)hud.getWidth(),H/(float)hud.getHeight());
-            hud.draw(c); // redraw ONLY this HUD view, not the Yandex phone map
-            c.restore();
+            // Bottom-only native Rokid layout using the existing TEST9
+            // navigation data and its existing mini-map renderer.
+            HudBottomLayout.render(c,hud,W,H);
             ByteArrayOutputStream bytes=new ByteArrayOutputStream(28000);
             if(bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes)) {
                 byte[] frame=bytes.toByteArray();
