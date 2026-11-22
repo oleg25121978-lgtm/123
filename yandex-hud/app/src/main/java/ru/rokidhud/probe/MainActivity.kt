@@ -77,7 +77,7 @@ class MainActivity : Activity() {
                 setOnClickListener {
                     val current = NavStore.current ?: return@setOnClickListener
                     val sample = current.samples.getOrNull(selectedImage) ?: return@setOnClickListener
-                    ArrowLabels.put(this@MainActivity, sample.digest, kind)
+                    ArrowLabels.put(this@MainActivity, sample, selectedImage, kind)
                     val resolved = ArrowLabels.resolve(this@MainActivity, current.samples)
                     // Forward the corrected guidance immediately to Nexus; don't wait for
                     // Yandex to post another notification after calibration.
