@@ -43,10 +43,10 @@ jobs:
             adb shell am start -W -n ru.rokidhud.glasses/.GlassesActivity
             sleep 5
             adb shell pidof ru.rokidhud.glasses
-            mkdir -p ../emulator-evidence
-            adb exec-out screencap -p > ../emulator-evidence/glasses-start.png
-            adb logcat -d -v brief > ../emulator-evidence/logcat.txt
-            if grep -A 8 'FATAL EXCEPTION' ../emulator-evidence/logcat.txt | grep -E 'ru\.rokidhud\.(phone|glasses)'; then
+            mkdir -p emulator-evidence
+            adb exec-out screencap -p > emulator-evidence/glasses-start.png
+            adb logcat -d -v brief > emulator-evidence/logcat.txt
+            if grep -A 8 'FATAL EXCEPTION' emulator-evidence/logcat.txt | grep -E 'ru\.rokidhud\.(phone|glasses)'; then
               echo 'HUD app fatal exception found' >&2
               exit 1
             fi
