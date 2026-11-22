@@ -16,10 +16,11 @@ public final class NavData {
     public final String maneuver;
     public final Integer limitKmh;
     public final String source;
+    public final String street;
 
-    private NavData(long receivedMs, String raw, String distance, String maneuver, Integer limitKmh, String source) {
+    private NavData(long receivedMs, String raw, String distance, String maneuver, Integer limitKmh, String source, String street) {
         this.receivedMs=receivedMs; this.raw=raw; this.distance=distance; this.maneuver=maneuver;
-        this.limitKmh=limitKmh; this.source=source;
+        this.limitKmh=limitKmh; this.source=source; this.street=street;
     }
 
     public static NavData parse(String pkg, String text) {
@@ -39,13 +40,19 @@ public final class NavData {
         String distance = d.find() ? d.group() : "";
         Integer limit = l.find() ? Integer.parseInt(l.group(1)) : null;
         if (limit != null && (limit < 5 || limit > 150)) limit = null;
-        return new NavData(System.currentTimeMillis(), text.substring(0, Math.min(400, text.length())), distance, m, limit, pkg);
+        return new NavData(System.currentTimeMillis(), text.substring(0, Math.min(400, text.length())), distance, m, limit, pkg, "");
+    }
+
+    public NavData withGuidance(String imageManeuver, String routeStreet) {
+        return new NavData(receivedMs, raw, distance,
+            "UNKNOWN".equals(imageManeuver) ? maneuver : imageManeuver,
+            limitKmh, source, routeStreet == null ? "" : routeStreet);
     }
 
     public HudMessage toWire(Integer speed) {
         HudMessage h = new HudMessage();
         h.state = distance.isEmpty() ? "idle" : "active";
-        h.source = source; h.distance = distance; h.maneuver = maneuver;
+        h.source = source; h.distance = distance; h.maneuver = maneuver; h.street = street;
         h.limitKmh = limitKmh; h.speedKmh = speed; h.text = raw;
         return h;
     }

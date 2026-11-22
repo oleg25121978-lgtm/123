@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 /** Only reads Yandex notification text; never captures/mirrors a screen. */
 public class YandexListener extends NotificationListenerService {
     private String activeKey;
+    static volatile java.util.List<YandexLayout.Sample> images = java.util.Collections.emptyList();
     private final Handler main = new Handler(Looper.getMainLooper());
 
     @Override public void onListenerConnected() {
@@ -33,16 +34,26 @@ public class YandexListener extends NotificationListenerService {
         CharSequence[] lines = e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
         if (lines != null) for (CharSequence line : lines) if (line != null) texts.add(line.toString());
         // More detailed and often bitmap-only Yandex RemoteViews are not yet decoded.
+        YandexLayout remote = YandexLayout.inspect(this,n);
+        for(String value:remote.texts.values())texts.add(value);
+        images=remote.images;
         String joined = String.join(" | ", texts);
         NavData next = NavData.parse(p, joined);
         if (next != null) {
+            String pictureManeuver=ArrowLabels.resolve(this,remote.images);
+            String street=e.getCharSequence(Notification.EXTRA_TEXT)==null?""
+                :e.getCharSequence(Notification.EXTRA_TEXT).toString().trim();
+            // The expanded title is the real distance for Yandex Maps; the text
+            // is often the street, and the image is an unlabeled maneuver icon.
+            if (street.equals(next.distance))street="";
+            next=next.withGuidance(pictureManeuver,street);
             if (!next.distance.isEmpty()) {
                 activeKey = sbn.getKey();
                 NavData.current = next;
             } else if (activeKey != null && activeKey.equals(sbn.getKey())) {
                 NavData.current = null;
             }
-            BluetoothHudService.debugText = "Яндекс: " + joined;
+            BluetoothHudService.debugText = "Яндекс: " + joined + "\nИмена элементов: " + remote.texts.keySet() + "\nКартинок: " + remote.images.size();
         }
     }
     @Override public void onNotificationRemoved(StatusBarNotification sbn) {

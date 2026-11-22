@@ -11,6 +11,9 @@ import android.widget.*;
 
 public class PhoneActivity extends Activity {
     private TextView info;
+    private ImageView preview;
+    private TextView imageLabel;
+    private int selectedImage=0;
     private Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable refresh = new Runnable() {
         public void run() {
@@ -21,6 +24,15 @@ public class PhoneActivity extends Activity {
                   "Скорость GPS: "+(BluetoothHudService.speedKmh==null?"нет":BluetoothHudService.speedKmh+" км/ч")+"\n"+
                   "Данные уведомления: "+BluetoothHudService.debugText+"\n"+
                   "Тестовая подсказка: "+(System.currentTimeMillis()<BluetoothHudService.demoUntil?"ВКЛ":"ВЫКЛ"));
+            }
+            if(preview!=null){
+                java.util.List<YandexLayout.Sample> images=YandexListener.images;
+                if(selectedImage>=images.size())selectedImage=Math.max(0,images.size()-1);
+                YandexLayout.Sample sample=images.isEmpty()?null:images.get(selectedImage);
+                preview.setImageBitmap(sample==null?null:sample.image);
+                imageLabel.setText(sample==null?"Изображений нет":
+                    "Изображение "+(selectedImage+1)+"/"+images.size()+
+                    " · "+sample.id+" · "+ArrowLabels.labelFor(PhoneActivity.this,sample));
             }
             handler.postDelayed(this,1000);
         }
@@ -55,6 +67,24 @@ public class PhoneActivity extends Activity {
         });
         button(v, "Остановить передачу", () -> stopService(new Intent(this,BluetoothHudService.class)));
         button(v, "Удалить это приложение", () -> startActivity(new Intent(Intent.ACTION_DELETE,Uri.parse("package:"+getPackageName()))));
+        TextView hint=new TextView(this);
+        hint.setText("Калибровка картинки поворота — ТОЛЬКО НА СТОЯНКЕ. Сначала проверь, что это именно стрелка, а не логотип.");
+        v.addView(hint);
+        LinearLayout controls=new LinearLayout(this);
+        button(controls, "◀", () -> {selectedImage=Math.max(0,selectedImage-1);});
+        button(controls, "▶", () -> {selectedImage++;});
+        v.addView(controls);
+        imageLabel=new TextView(this);v.addView(imageLabel);
+        preview=new ImageView(this);preview.setMinimumHeight(120);preview.setAdjustViewBounds(true);v.addView(preview);
+        for(String m:new String[]{"LEFT","RIGHT","STRAIGHT","SLIGHT_LEFT","SLIGHT_RIGHT","UTURN","ROUNDABOUT"}) {
+            final String label=m;
+            button(v,"Метка: "+m, () -> {
+                java.util.List<YandexLayout.Sample> sampleList=YandexListener.images;
+                ArrowLabels.label(this,sampleList,selectedImage,label);
+                NavData data=NavData.current;
+                if(data!=null)NavData.current=data.withGuidance(label,data.street);
+            });
+        }
         info=new TextView(this); info.setTextSize(15); info.setPadding(4,20,4,4); v.addView(info);
         ScrollView scroll=new ScrollView(this); scroll.addView(v); setContentView(scroll);
     }
