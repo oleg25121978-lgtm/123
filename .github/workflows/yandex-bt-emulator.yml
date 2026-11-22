@@ -1,0 +1,58 @@
+name: Android 12 emulator smoke — Yandex BT HUD
+on:
+  push:
+    branches: [feature/yandex-phone-bluetooth-hud]
+    paths:
+      - 'yandex-bt/**'
+      - '.github/workflows/yandex-bt-emulator.yml'
+  workflow_dispatch:
+jobs:
+  emulator-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 12 app launch tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            cd yandex-bt
+            gradle --no-daemon :phone:assembleDebug :glasses:assembleDebug
+            adb install -r phone/build/outputs/apk/debug/phone-debug.apk
+            adb install -r glasses/build/outputs/apk/debug/glasses-debug.apk
+            adb logcat -c
+            adb shell am start -W -n ru.rokidhud.phone/.PhoneActivity
+            sleep 5
+            adb shell pidof ru.rokidhud.phone
+            adb shell am force-stop ru.rokidhud.phone
+            adb shell am start -W -n ru.rokidhud.glasses/.GlassesActivity
+            sleep 5
+            adb shell pidof ru.rokidhud.glasses
+            mkdir -p ../emulator-evidence
+            adb exec-out screencap -p > ../emulator-evidence/glasses-start.png
+            adb logcat -d -v brief > ../emulator-evidence/logcat.txt
+            if grep -A 8 'FATAL EXCEPTION' ../emulator-evidence/logcat.txt | grep -E 'ru\.rokidhud\.(phone|glasses)'; then
+              echo 'HUD app fatal exception found' >&2
+              exit 1
+            fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Yandex-HUD-Android12-Smoke
+          path: emulator-evidence/*
