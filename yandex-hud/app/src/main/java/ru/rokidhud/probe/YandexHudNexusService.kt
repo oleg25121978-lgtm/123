@@ -1,5 +1,6 @@
 package ru.rokidhud.probe
 
+import com.anezium.rokidbus.shared.plugin.NexusInputEvent
 import android.os.Handler
 import android.os.Looper
 import com.anezium.rokidbus.client.PluginRegistrationResult
@@ -14,6 +15,10 @@ import com.anezium.rokidbus.shared.PageBody
 
 /** An opt-in, independent Nexus plugin. No screen mirroring, no replacement of built-in navigation. */
 class YandexHudNexusService : NexusPluginService() {
+    override fun onNexusOpen() = Unit
+    override fun onNexusClose() = Unit
+    override fun onNexusInput(event: NexusInputEvent) = Unit
+
     private val handler = Handler(Looper.getMainLooper())
     private val planner = NexusGuidancePlanner()
     private var pageRevision = 1L
