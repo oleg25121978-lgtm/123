@@ -33,20 +33,17 @@ import java.util.UUID;
 
 /**
  * Same-process bridge for the pre-existing TEST9 HUD.
- * Declared in place of the existing TEST9 HudProvider.
- * Original provider is instantiated through reflection and attached
- * so all native Yandex navigation/route logic remains unchanged.
+ * Declared as an additional independent provider. Original HudProvider stays installed,
+ * keeping original navigation and onboarding lifecycle unchanged.
  */
 public final class HudRelayProvider extends ContentProvider {
     private static final String LOG = "Test9HUDRelay";
-    private static final String ORIGINAL = "ru.yandex.yandexnavi.rokidhud.HudProvider";
     private static final String VIEW_CLASS = "ru.yandex.yandexnavi.rokidhud.HudProvider$NavigationView";
     private static final UUID UUID_SPP = UUID.fromString("5a6d41c7-8aa2-4cc4-bf87-d6c362182404");
     private static final long PERIOD_MS = 850;
     private static final int W = 480;
     private static final int H = 640;
 
-    private ContentProvider delegate;
     private volatile byte[] encoded = null;
     private final Handler main = new Handler(Looper.getMainLooper());
     private WeakReference<Activity> activity = new WeakReference<>(null);
@@ -59,8 +56,9 @@ public final class HudRelayProvider extends ContentProvider {
 
     private final Application.ActivityLifecycleCallbacks callbacks = new Application.ActivityLifecycleCallbacks() {
         @Override public void onActivityResumed(Activity a) {
+            // Do nothing to the license screen and onboarding activities.
+            // The Bluetooth receiver only starts after the original TEST9 HUD exists.
             activity = new WeakReference<>(a);
-            ensureBluetooth(a);
         }
         @Override public void onActivityPaused(Activity a) {
             if (activity.get() == a) activity = new WeakReference<>(null);
@@ -83,24 +81,10 @@ public final class HudRelayProvider extends ContentProvider {
 
     @Override public boolean onCreate() {
         Context c=getContext();
-        if (c==null) return false;
-        try {
-            Class<?> originalClass=Class.forName(ORIGINAL,false,c.getClassLoader());
-            delegate=(ContentProvider) originalClass.getConstructor().newInstance();
-            // ContentProvider.attachInfo() calls HudProvider.onCreate() and
-            // retains its original ActivityLifecycleCallbacks.
-            ProviderInfo info=new ProviderInfo();
-            info.authority=c.getPackageName()+".rokidhud";
-            info.applicationInfo=c.getApplicationInfo();
-            info.exported=false;
-            delegate.attachInfo(c,info);
-        } catch (Throwable failure) {
-            Log.e(LOG,"Original TEST9 provider could not be started",failure);
-            return false;
-        }
-        Application app=(Application)c.getApplicationContext();
-        app.registerActivityLifecycleCallbacks(callbacks);
-        main.post(tick);
+        if(c==null || !(c.getApplicationContext() instanceof Application)) return false;
+        // Independent, non-intrusive observer; TEST9's original HudProvider is untouched.
+        ((Application)c.getApplicationContext()).registerActivityLifecycleCallbacks(callbacks);
+        main.postDelayed(tick, 1500L);
         return true;
     }
 
@@ -145,6 +129,8 @@ public final class HudRelayProvider extends ContentProvider {
         View decor=w.getDecorView();
         View hud=locate(decor);
         if (hud==null || hud.getWidth()<=0 || hud.getHeight()<=0) {encoded=null;return;}
+        // Bluetooth permission is requested ONLY once the real navigation HUD exists.
+        ensureBluetooth(a);
         if (hud != mostRecentHud) { mostRecentHud=hud;Log.i(LOG,"TEST9 NavigationView found"); }
         // Keep HUD active and receiving original Yandex route updates,
         // but move only this overlay beyond phone's viewable area.
@@ -206,12 +192,11 @@ public final class HudRelayProvider extends ContentProvider {
         }
     }
 
-    // Original TEST9 ContentProvider contract is forwarded verbatim.
-    @Override public Cursor query(Uri uri,String[] projection,String selection,String[] args,String order) {
-        return delegate==null?null:delegate.query(uri,projection,selection,args,order);
-    }
-    @Override public String getType(Uri uri) {return delegate==null?null:delegate.getType(uri);}
-    @Override public Uri insert(Uri uri,ContentValues vals){return delegate==null?null:delegate.insert(uri,vals);}
-    @Override public int delete(Uri uri,String where,String[] args){return delegate==null?0:delegate.delete(uri,where,args);}
-    @Override public int update(Uri uri,ContentValues vals,String where,String[] args){return delegate==null?0:delegate.update(uri,vals,where,args);}
+    // This is a separate private provider. The original TEST9 provider keeps its own
+    // ContentProvider contract and ActivityLifecycleCallbacks unchanged.
+    @Override public Cursor query(Uri uri,String[] projection,String selection,String[] args,String order) {return null;}
+    @Override public String getType(Uri uri) {return null;}
+    @Override public Uri insert(Uri uri,ContentValues vals) {return null;}
+    @Override public int delete(Uri uri,String where,String[] args) {return 0;}
+    @Override public int update(Uri uri,ContentValues vals,String where,String[] args) {return 0;}
 }
