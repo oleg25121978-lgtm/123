@@ -51,6 +51,11 @@ public final class HudRelayProvider extends ContentProvider {
     private boolean foreground;
     private boolean keepAliveStarted;
     private int idleTicks;
+    // Do not operate during Yandex first-run onboarding or non-navigation screens.
+    private boolean routeArmed;
+    private int navigationFrames;
+    private long lastActiveNavigationMs;
+    private static final int FRAMES_BEFORE_ARMING = 3;
     private volatile boolean running = true;
     private volatile BluetoothServerSocket serverSocket;
     private volatile BluetoothSocket socket;
@@ -60,34 +65,44 @@ public final class HudRelayProvider extends ContentProvider {
 
     private final Application.ActivityLifecycleCallbacks callbacks = new Application.ActivityLifecycleCallbacks() {
         @Override public void onActivityResumed(Activity a) {
-            // Original TEST9 owns navigation; relay waits for an actual HUD.
-            activity = a;
-            foreground = true;
+            // Switching between onboarding screens must never arm the bridge.
+            if (activity != a) {
+                routeArmed=false;
+                navigationFrames=0;
+                mostRecentHud=null;
+            }
+            activity=a;
+            foreground=true;
         }
         @Override public void onActivityPaused(Activity a) {
             if (activity != a) return;
             foreground = false;
-            // The original TEST9 provider calls NavigationView.stop() on pause.
-            // Restart its existing polling loop after the original lifecycle callbacks.
+            // Only an already confirmed, running route may survive app minimization.
+            // In particular, first-run "Подсказки в пути" must not run this code.
+            if (!routeArmed || System.currentTimeMillis()-lastActiveNavigationMs>6000L) return;
+            final View activeHud=mostRecentHud;
             main.postDelayed(() -> {
-                if (activity != a || a.isDestroyed() || a.isFinishing()) return;
+                if (activity!=a || a.isDestroyed() || a.isFinishing() ||
+                    !routeArmed || activeHud==null || mostRecentHud!=activeHud) return;
                 try {
-                    View hud = locate(a.getWindow().getDecorView());
-                    if (hud == null || hud.getVisibility() != View.VISIBLE) return;
-                    java.lang.reflect.Method start = hud.getClass().getDeclaredMethod("start");
+                    // No view-tree scan, and never restart the wrong onboarding screen.
+                    java.lang.reflect.Method start=activeHud.getClass().getDeclaredMethod("start");
                     start.setAccessible(true);
-                    start.invoke(hud);
-                    Log.i(LOG, "Navigation HUD polling restored in background");
+                    start.invoke(activeHud);
+                    Log.i(LOG, "Active route polling restored after minimization");
                 } catch (Throwable error) {
-                    Log.w(LOG, "Unable to restart TEST9 HUD after pause", error);
+                    Log.w(LOG, "TEST9 HUD background resume failed",error);
                 }
-            }, 200L);
+            }, 400L);
         }
         @Override public void onActivityDestroyed(Activity a) {
             if (activity == a) {
                 activity = null;
                 foreground = false;
                 encoded = null;
+                routeArmed=false;
+                navigationFrames=0;
+                mostRecentHud=null;
             }
         }
         @Override public void onActivityCreated(Activity a, Bundle saved) {}
@@ -128,6 +143,16 @@ public final class HudRelayProvider extends ContentProvider {
         }
     }
 
+    private static boolean isActiveRoute(View hud) {
+        // Original Test9 NavigationView.active is set by updateVisibility()
+        // only when Yandex reports live turn-by-turn navigation.
+        try {
+            java.lang.reflect.Field flag=hud.getClass().getDeclaredField("active");
+            flag.setAccessible(true);
+            return flag.getBoolean(hud);
+        } catch(Throwable ignored) { return false; } // fail closed, do not guess
+    }
+
     private static View locate(View candidate) {
         if (candidate==null) return null;
         if (VIEW_CLASS.equals(candidate.getClass().getName())) return candidate;
@@ -149,13 +174,28 @@ public final class HudRelayProvider extends ContentProvider {
         View decor=w.getDecorView();
         View hud=locate(decor);
         if (hud==null || hud.getWidth()<=0 || hud.getHeight()<=0) {encoded=null;onIdle();return;}
-        // Bluetooth permission is requested ONLY once the real navigation HUD exists.
-        ensureBluetooth(a);
-        if (hud != mostRecentHud) { mostRecentHud=hud;Log.i(LOG,"TEST9 NavigationView found"); }
-        // Keep HUD active and receiving original Yandex route updates,
-        // but move only this overlay beyond phone's viewable area.
+        // No work during setup, permissions, license or "Подсказки в пути".
+        if (hud.getVisibility()!=View.VISIBLE || !isActiveRoute(hud)) {
+            encoded=null;
+            routeArmed=false;
+            navigationFrames=0;
+            onIdle();
+            return;
+        }
+        if (hud != mostRecentHud) {
+            mostRecentHud=hud;
+            navigationFrames=0;
+            routeArmed=false;
+        }
+        if (!routeArmed) {
+            if (++navigationFrames < FRAMES_BEFORE_ARMING) return;
+            routeArmed=true;
+            Log.i(LOG,"TEST9 confirmed active route; HUD relay armed");
+        }
+        lastActiveNavigationMs=System.currentTimeMillis();
+        // Only after route verification may this app request BT permission.
+        if (foreground) ensureBluetooth(a);
         hud.setTranslationX(Math.max(decor.getWidth()*2f,2000f));
-        if (hud.getVisibility()!=View.VISIBLE) {encoded=null;onIdle();return;}
         idleTicks=0;
         startKeepAlive(a);
         Bitmap bitmap=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);
