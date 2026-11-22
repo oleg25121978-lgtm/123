@@ -84,8 +84,12 @@ class YandexNotificationService : NotificationListenerService() {
             ?.copy(imageIds = layout.imageResourceNames, samples = layout.samples)
         // Exact hash recognition only. An unlabeled picture never produces a turn.
         if (snapshot != null) {
-            val recognized = snapshot.samples.mapNotNull { ArrowLabels.get(this, it.digest) }.distinct()
-            val next = snapshot.copy(maneuver = if (recognized.size == 1) recognized.first() else snapshot.maneuver)
+            val fromImage = ArrowLabels.resolve(this, snapshot.samples)
+            val textManeuver = snapshot.maneuver
+            val chosen = if (fromImage != Maneuver.UNKNOWN) fromImage else textManeuver
+            val destination = e.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+            val streetName = destination?.takeIf { it.isNotBlank() && !it.contains("Navigator is running", ignoreCase = true) }
+            val next = snapshot.copy(maneuver = chosen, street = streetName)
             if (next.distance != null) {
                 unreadable?.let(handler::removeCallbacks)
                 unreadable = null
