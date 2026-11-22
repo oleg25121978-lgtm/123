@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothSocket;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.database.Cursor;
@@ -28,7 +29,6 @@ import android.view.Window;
 import java.io.DataOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.util.UUID;
 
 /**
@@ -46,7 +46,11 @@ public final class HudRelayProvider extends ContentProvider {
 
     private volatile byte[] encoded = null;
     private final Handler main = new Handler(Looper.getMainLooper());
-    private WeakReference<Activity> activity = new WeakReference<>(null);
+    // Keep the live navigation Activity while paused; onDestroy releases it.
+    private Activity activity;
+    private boolean foreground;
+    private boolean keepAliveStarted;
+    private int idleTicks;
     private volatile boolean running = true;
     private volatile BluetoothServerSocket serverSocket;
     private volatile BluetoothSocket socket;
@@ -56,15 +60,35 @@ public final class HudRelayProvider extends ContentProvider {
 
     private final Application.ActivityLifecycleCallbacks callbacks = new Application.ActivityLifecycleCallbacks() {
         @Override public void onActivityResumed(Activity a) {
-            // Do nothing to the license screen and onboarding activities.
-            // The Bluetooth receiver only starts after the original TEST9 HUD exists.
-            activity = new WeakReference<>(a);
+            // Original TEST9 owns navigation; relay waits for an actual HUD.
+            activity = a;
+            foreground = true;
         }
         @Override public void onActivityPaused(Activity a) {
-            if (activity.get() == a) activity = new WeakReference<>(null);
+            if (activity != a) return;
+            foreground = false;
+            // The original TEST9 provider calls NavigationView.stop() on pause.
+            // Restart its existing polling loop after the original lifecycle callbacks.
+            main.postDelayed(() -> {
+                if (activity != a || a.isDestroyed() || a.isFinishing()) return;
+                try {
+                    View hud = locate(a.getWindow().getDecorView());
+                    if (hud == null || hud.getVisibility() != View.VISIBLE) return;
+                    java.lang.reflect.Method start = hud.getClass().getDeclaredMethod("start");
+                    start.setAccessible(true);
+                    start.invoke(hud);
+                    Log.i(LOG, "Navigation HUD polling restored in background");
+                } catch (Throwable error) {
+                    Log.w(LOG, "Unable to restart TEST9 HUD after pause", error);
+                }
+            }, 200L);
         }
         @Override public void onActivityDestroyed(Activity a) {
-            if (activity.get() == a) activity = new WeakReference<>(null);
+            if (activity == a) {
+                activity = null;
+                foreground = false;
+                encoded = null;
+            }
         }
         @Override public void onActivityCreated(Activity a, Bundle saved) {}
         @Override public void onActivityStarted(Activity a) {}
@@ -92,7 +116,7 @@ public final class HudRelayProvider extends ContentProvider {
         Context c=getContext();
         if (c==null || !running) return;
         if (c.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED) {
-            if (!requestedPermission && android.os.Build.VERSION.SDK_INT>=31) {
+            if (foreground && !requestedPermission && android.os.Build.VERSION.SDK_INT>=31) {
                 requestedPermission=true;
                 a.requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 905);
             }
@@ -118,20 +142,22 @@ public final class HudRelayProvider extends ContentProvider {
     }
 
     private void capture() {
-        Activity a=activity.get();
-        if(a==null) { encoded=null; return; }
+        Activity a=activity;
+        if(a==null || a.isDestroyed()) { encoded=null; onIdle(); return; }
         Window w=a.getWindow();
-        if(w==null) {encoded=null;return;}
+        if(w==null) {encoded=null;onIdle();return;}
         View decor=w.getDecorView();
         View hud=locate(decor);
-        if (hud==null || hud.getWidth()<=0 || hud.getHeight()<=0) {encoded=null;return;}
+        if (hud==null || hud.getWidth()<=0 || hud.getHeight()<=0) {encoded=null;onIdle();return;}
         // Bluetooth permission is requested ONLY once the real navigation HUD exists.
         ensureBluetooth(a);
         if (hud != mostRecentHud) { mostRecentHud=hud;Log.i(LOG,"TEST9 NavigationView found"); }
         // Keep HUD active and receiving original Yandex route updates,
         // but move only this overlay beyond phone's viewable area.
         hud.setTranslationX(Math.max(decor.getWidth()*2f,2000f));
-        if (hud.getVisibility()!=View.VISIBLE) {encoded=null;return;}
+        if (hud.getVisibility()!=View.VISIBLE) {encoded=null;onIdle();return;}
+        idleTicks=0;
+        startKeepAlive(a);
         Bitmap bitmap=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);
         try {
             Canvas c=new Canvas(bitmap);
@@ -146,6 +172,28 @@ public final class HudRelayProvider extends ContentProvider {
                 encoded=frame.length<=300000?frame:null;
             } else encoded=null;
         } finally { bitmap.recycle(); }
+    }
+
+    // Start only with a visible navigation HUD and while Test9 is foreground.
+    // Huawei EMUI may aggressively stop background work without a foreground service.
+    private void startKeepAlive(Activity a) {
+        if (keepAliveStarted || !foreground) return;
+        try {
+            a.startForegroundService(new Intent(a, HudKeepAliveService.class));
+            keepAliveStarted=true;
+        } catch (Throwable error) {
+            Log.w(LOG, "Foreground keep-alive unavailable", error);
+        }
+    }
+
+    private void onIdle() {
+        if (!keepAliveStarted) return;
+        // Stop the notification once navigation HUD has been absent ~30 seconds.
+        if (++idleTicks < 35) return;
+        Context c=getContext();
+        if(c!=null) c.stopService(new Intent(c,HudKeepAliveService.class));
+        keepAliveStarted=false;
+        idleTicks=0;
     }
 
     @SuppressWarnings("MissingPermission")
