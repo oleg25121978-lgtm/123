@@ -32,10 +32,9 @@ jobs:
           target: google_apis
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           script: |
-            cd yandex-bt
-            gradle --no-daemon :phone:assembleDebug :glasses:assembleDebug
-            adb install -r phone/build/outputs/apk/debug/phone-debug.apk
-            adb install -r glasses/build/outputs/apk/debug/glasses-debug.apk
+            gradle -p yandex-bt --no-daemon :phone:assembleDebug :glasses:assembleDebug
+            adb install -r yandex-bt/phone/build/outputs/apk/debug/phone-debug.apk
+            adb install -r yandex-bt/glasses/build/outputs/apk/debug/glasses-debug.apk
             adb logcat -c
             adb shell am start -W -n ru.rokidhud.phone/.PhoneActivity
             sleep 5
