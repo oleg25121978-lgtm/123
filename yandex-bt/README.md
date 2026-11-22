@@ -5,14 +5,15 @@
 ## What is actually implemented
 - Two separate Android APKs: \`phone\` and \`glasses\`.
 - Paired-device RFCOMM Bluetooth SPP, with a private app UUID and versioned newline-delimited JSON packets once a second. Does **not** mirror a phone display or send screenshots.
-- Phone-side notification listener limited to \`ru.yandex.yandexnavi\` and \`ru.yandex.yandexmaps\`. It only shows maneuver/distance when textual data is present.
+- Phone-side notification listener restricted to \`ru.yandex.yandexnavi\` and \`ru.yandex.yandexmaps\`; also reads expanded Yandex notification RemoteViews text.
+- Bounded icon extraction (<=128 px), local exact SHA-256 arrow calibration while stationary. Unknown icons are never guessed.
 - Optional phone GPS speed readout; speed limit only if explicitly given by Yandex notification, otherwise blank/unknown.
 - A separate 30-second test packet, **not presented as real navigation**.
 - Rokid custom portrait HUD: turn + distance in upper corners, speed / speed limit in bottom corners. Empty middle view.
 - Auto-reconnect on glasses while HUD app remains open. Bluetooth service on phone stays in foreground until stopped.
 
 ## Known limits — not a completed Yandex integration
-- Unverified with real Yandex app and physical glasses. Yandex might put its active maneuver in bitmap-only RemoteViews or not publish it in notifications at all. In that case only the diagnostic text and demo packet work; additional adapter engineering is required.
+- Unverified with the real Yandex Navigator/Maps notifications on user hardware and physical glasses. The remote view may be inaccessible, or omit live navigation state entirely; then only diagnostics and demo traffic work. Arrow calibration helps only for visible image samples and is not an API for the route.
 - Lane guidance and miniprojection are **not** available through this parser; no fabricated values.
 - The 35s update TTL is deliberately conservative; if real notifications are less frequent a route may disappear.
 - Phone's Android 12 is compatible (min API 31); glasses also require API 31 or later for this initial build.
@@ -35,7 +36,7 @@ Outputs:
 3. Press **Начать передачу на очки** on phone.
 4. Install glasses APK, open it, select paired **phone**, keep it open.
 5. On phone press **ТЕСТ: показать 200 м →**; confirm on glasses arrow, distance, speed and limit. These are simulated values.
-6. Start a real route in Yandex Navigator. On phone view the diagnostic \`Данные уведомления\` and compare with arrows and distance on screen. If fields are missing, they cannot be guessed.
+6. Start a real route in Yandex Navigator or Yandex Maps. On phone inspect \`Данные уведомления\`, expanded-view image previews and actual distance. If the image is a turn arrow, label its direction **while stationary**; never label a logo or a lane pictogram. Check again on every turn. If fields are missing, they cannot be guessed.
 7. Do not rely on unvalidated guidance while driving; verify when stationary.
 
 Long-press the glasses HUD to choose a different paired phone.
