@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Build-only container; classes.dex is added to Yandex Maps as classes17.dex. -->
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+  <application android:label="Yandex Maps HUD integration module (build only)" android:allowBackup="false"/>
+</manifest>
