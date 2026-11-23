@@ -187,8 +187,9 @@ public final class MapsHudProvider extends ContentProvider {
         // Return exactly what the Yandex ETA widget already displays.
         // Match a clock time, never infer it from the distance to the turn.
         for(String t:strings){
-            if(Pattern.matches(".*\\b(?:[01]?\\d|2[0-3]):[0-5]\\d\\b.*",t))
-                return t;
+            java.util.regex.Matcher match=Pattern.compile(
+                "(?<!\\d)(?:[01]?\\d|2[0-3]):[0-5]\\d(?!\\d)").matcher(t);
+            if(match.find())return match.group();
         }
         return null;
     }
