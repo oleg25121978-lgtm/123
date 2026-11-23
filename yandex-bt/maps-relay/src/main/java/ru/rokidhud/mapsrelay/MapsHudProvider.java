@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
  */
 public final class MapsHudProvider extends ContentProvider {
     private static final String TAG="YMaps31HUDProbe";
-    private static final UUID SPP=UUID.fromString("5a6d41c7-8aa2-4cc4-bf87-d6c362182404");
+    private static final UUID SPP=UUID.fromString("6c8c5612-483f-4d21-94e9-0315d3d9e615");
     private static final long PERIOD=1000L;
     private static final int W=480,H=640;
     private static final int WHITE=Color.rgb(230,255,232);
