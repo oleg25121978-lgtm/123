@@ -329,11 +329,11 @@ public final class MapsHudProvider extends ContentProvider {
         c.drawColor(Color.TRANSPARENT,PorterDuff.Mode.CLEAR);
         Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         // Whole upper field is empty: no black background, no screen mirroring.
-        txt(c,p,"СКОРОСТЬ",16,526,11,DIM);
-        txt(c,p,speed(w.speed),16,556,28,WHITE);
+        txt(c,p,"СКОРОСТЬ",14,516,10,DIM);
+        txt(c,p,speed(w.speed),14,548,26,WHITE);
         String eta=arrival(w.eta);
         // No "calculated" placeholders or guessed arrival.
-        if(eta!=null)txt(c,p,"ETA "+eta,16,604,13,GREEN);
+        if(eta!=null)txt(c,p,"ETA "+eta,14,605,13,GREEN);
         // Transparent smaller native Yandex arrow + distance, from just
         // ContextManeuverView, never from the phone map or menu.
         drawNativeWidget(c,w.maneuver,new Rect(163,527,301,610));
