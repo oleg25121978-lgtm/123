@@ -27,3 +27,9 @@
 - https://yandex.ru/maps-api/docs/mapkit/android/generated/navigation/guidance.html
 - https://www.rustore.ru/catalog/app/ru.yandex.yandexmaps
 - https://www.apkmirror.com/apk/direct-cursus-computer-systems-trading-llc/yandex-maps/yandex-maps-and-navigator-31-1-5-release/yandex-maps-and-navigator-31-1-5-android-apk-download/
+
+## Неизменяемое требование совместимости
+- **НЕ уменьшать и НЕ урезать** оригинальный APK Яндекс Карт по собственной инициативе.
+- Сохранять все ABI, DEX, ресурсы и поддерживаемые исходным приложением устройства. Новая сборка не должна становиться ARM64-only.
+- Для тестов использовать полный универсальный APK; отсутствие поддержки у конкретного устройства допускается только если это ограничение самого оригинального приложения.
+- Отдельная ранее сделанная ARM64-only сборка не является релизом проекта и исключена из дальнейших версий.
