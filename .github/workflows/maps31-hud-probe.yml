@@ -1,7 +1,7 @@
 name: Build Maps 31 HUD Probe
 on:
   push:
-    branches: [feature/yandex-maps-hud-v31]
+    branches: [feature/yandex-maps-hud-v31, feature/maps31-maneuver-no-background]
     paths:
       - 'yandex-bt/maps-relay/**'
       - 'yandex-bt/settings.gradle'
