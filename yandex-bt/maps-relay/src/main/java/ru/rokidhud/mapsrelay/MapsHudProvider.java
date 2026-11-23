@@ -62,6 +62,8 @@ public final class MapsHudProvider extends ContentProvider {
     private volatile byte[] frame;
     private volatile byte[] lastGoodFrame;
     private long lastGoodFrameAt;
+    private String lastNotificationIdentity;
+    private long lastNotificationAt;
     private final MapsHudMiniMap miniMap=new MapsHudMiniMap();
     private boolean keepAliveStarted=false;
     private int idleTicks=0;
@@ -428,11 +430,24 @@ public final class MapsHudProvider extends ContentProvider {
             if(bmp.compress(Bitmap.CompressFormat.PNG,100,stream)){
                 byte[] data=stream.toByteArray();
                 if(data.length<=300000) {
-                    frame=data;
-                    lastGoodFrame=data;
-                    lastGoodFrameAt=System.currentTimeMillis();
-                } else frame=recentFrame();
-            }else frame=recentFrame();
+                    // IMPORTANT: a paused Android window can keep a frozen
+                    // View tree while the navigation session itself advances.
+                    // Re-encoding the SAME pixels is not a fresh route update.
+                    boolean updated=foreground ||
+                        lastGoodFrame==null ||
+                        !java.util.Arrays.equals(data,lastGoodFrame);
+                    if(updated){
+                        frame=data;
+                        lastGoodFrame=data;
+                        lastGoodFrameAt=System.currentTimeMillis();
+                        if(!foreground)Log.i(TAG,"Background native guidance frame changed");
+                    }else{
+                        // If the view is frozen, a genuinely new navigation
+                        // notification can still supply the next maneuver.
+                        frame=backgroundFrame();
+                    }
+                }else frame=backgroundFrame();
+            }else frame=backgroundFrame();
         }finally{bmp.recycle();}
         if(navigationFrames==3){
             navigationFrames=4;
@@ -489,13 +504,21 @@ public final class MapsHudProvider extends ContentProvider {
         if(ctx!=null){
             MapsHudNotificationSource.Snapshot n=MapsHudNotificationSource.read(ctx);
             if(n!=null && n.hasManeuver()){
-                byte[] result=drawActualNotification(n);
-                if(result!=null){
-                    // A live OS notification is evidence that Yandex is still
-                    // publishing navigation. Keep USB/Bluetooth session alive.
-                    lastGoodFrame=result;
-                    lastGoodFrameAt=System.currentTimeMillis();
-                    return result;
+                // A posted notification can remain unchanged forever after
+                // Yandex stopped publishing guidance. Its presence alone is
+                // NOT evidence of a live route.
+                String identity=n.originalTitle+"\u0001"+n.originalText+
+                    "\u0001"+n.turn+"\u0001"+n.turnDistance+"\u0001"+n.arrival;
+                if(!identity.equals(lastNotificationIdentity)){
+                    lastNotificationIdentity=identity;
+                    lastNotificationAt=System.currentTimeMillis();
+                    byte[] result=drawActualNotification(n);
+                    if(result!=null){
+                        lastGoodFrame=result;
+                        lastGoodFrameAt=lastNotificationAt;
+                        Log.i(TAG,"Fresh Yandex guidance notification received");
+                        return result;
+                    }
                 }
             }
         }
@@ -516,6 +539,8 @@ public final class MapsHudProvider extends ContentProvider {
         frame=null;
         lastGoodFrame=null;
         lastGoodFrameAt=0;
+        lastNotificationAt=0;
+        lastNotificationIdentity=null;
         miniMap.clear();
         stopKeepAlive();
     }
