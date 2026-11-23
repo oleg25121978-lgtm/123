@@ -34,10 +34,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Prepare Android SDK on macOS Intel
+      - name: Prepare preinstalled macOS Android SDK
         run: |
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          # setup-android@v3 requests removed SDK package 'tools' and fails on
+          # the current macOS image. Use its existing command-line tools.
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            echo "ANDROID_HOME=$HOME/Library/Android/sdk" >> "$GITHUB_ENV"
+            export ANDROID_HOME="$HOME/Library/Android/sdk"
+          fi
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
           echo "build_tools=$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_ENV"
           uname -a
       - uses: gradle/actions/setup-gradle@v4
