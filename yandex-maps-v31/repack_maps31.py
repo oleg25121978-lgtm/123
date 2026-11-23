@@ -233,6 +233,10 @@ def get_compiler_dex(compiled):
             if re.fullmatch(r"classes\d*\.dex",x)]
     matches=[x for x in matches if b"MapsHudProvider" in x]
     if len(matches)!=1:raise ValueError("Could not identify one MapsHudProvider DEX")
+    required=(b"MapsHudKeepAliveService",b"MapsHudMiniMap",
+              b"MapsHudLanes",b"MapsHudNotificationSource")
+    missing=[name.decode() for name in required if name not in matches[0]]
+    if missing:raise ValueError("Related classes are in another DEX: "+str(missing))
     return matches[0]
 
 def repack(original,compiler,destination):
