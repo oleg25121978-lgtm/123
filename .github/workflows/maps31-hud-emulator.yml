@@ -45,8 +45,12 @@ jobs:
             adb shell wm density 160
             adb install -r yandex-bt/maps-relay/build/outputs/apk/debug/maps-relay-debug.apk
             adb logcat -c
+            adb shell settings put secure immersive_mode_confirmations confirmed || true
             adb shell am start -W -n ru.rokidhud.mapsrelay.compiler/ru.rokidhud.mapsrelay.HudScreenshotActivity
-            sleep 5
+            sleep 4
+            # Android's first-run 'Viewing full screen' overlay must not hide HUD.
+            adb shell input tap 397 202 || true
+            sleep 2
             adb logcat -d > hud-all-logcat.txt
             adb logcat -d -s Maps31PreviewTest:I Maps31PreviewTest:E > hud-preview-log.txt
             cat hud-preview-log.txt
@@ -55,7 +59,7 @@ jobs:
             mkdir -p yandex-maps-v31/preview
             adb exec-out screencap -p > yandex-maps-v31/preview/emulator-hud-sample.png
             file yandex-maps-v31/preview/emulator-hud-sample.png
-            grep -q "PASS 480x640" hud-preview-log.txt
+            grep -q "Maps31PreviewTest: PASS 480x640" hud-all-logcat.txt
       - name: Save Android emulator screenshot as workflow artifact
         uses: actions/upload-artifact@v4
         if: always()
