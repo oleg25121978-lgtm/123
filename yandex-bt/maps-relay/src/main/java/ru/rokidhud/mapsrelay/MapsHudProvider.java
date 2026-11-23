@@ -602,7 +602,7 @@ public final class MapsHudProvider extends ContentProvider {
         if(ctx==null)return;
         BluetoothServerSocket server=null;
         try{
-            BluetoothManager manager=ctx.getSystemService(BluetoothManager.class);
+            BluetoothManager manager=(BluetoothManager)ctx.getSystemService(Context.BLUETOOTH_SERVICE);
             BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
             if(adapter==null||!adapter.isEnabled())return;
             server=adapter.listenUsingRfcommWithServiceRecord("Yandex Maps 31 Rokid HUD",SPP);
