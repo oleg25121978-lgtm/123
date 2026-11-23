@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Real Yandex Maps -> Rokid HUD data",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_package", "active", "observed_at_ms"],
+  "properties": {
+    "source_package": {"const": "ru.yandex.yandexmaps"},
+    "active": {"type": "boolean"},
+    "observed_at_ms": {"type": "integer", "minimum": 0},
+    "speed_kmh": {"type": ["number", "null"], "minimum": 0},
+    "speed_limit_kmh": {"type": ["number", "null"], "minimum": 0},
+    "maneuver_kind": {"type": ["string", "null"]},
+    "maneuver_distance_m": {"type": ["number", "null"], "minimum": 0},
+    "road_name": {"type": ["string", "null"]},
+    "eta_unix_ms": {"type": ["integer", "null"], "minimum": 0},
+    "remaining_distance_m": {"type": ["number", "null"], "minimum": 0},
+    "recommended_lanes": {"type": ["array", "null"], "items": {"type": "object", "properties": {"direction": {"type": "string"}, "recommended": {"type": "boolean"}}, "required": ["direction", "recommended"], "additionalProperties": false}},
+    "route_geometry": {"type": ["array", "null"], "items": {"type": "array", "prefixItems": [{"type":"number"},{"type":"number"}], "items": false, "minItems": 2, "maxItems": 2}}
+  }
+}
