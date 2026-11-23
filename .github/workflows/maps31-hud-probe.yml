@@ -1,0 +1,27 @@
+name: Build Maps 31 HUD Probe
+on:
+  push:
+    branches: [feature/yandex-maps-hud-v31]
+    paths:
+      - 'yandex-bt/maps-relay/**'
+      - 'yandex-bt/settings.gradle'
+      - '.github/workflows/maps31-hud-probe.yml'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Android SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"'
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.11.1'}
+      - name: Compile Yandex Maps module
+        working-directory: yandex-bt
+        run: gradle --no-daemon :maps-relay:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YandexMaps31-HUD-Relay-Compiler
+          path: yandex-bt/maps-relay/build/outputs/apk/debug/*.apk
