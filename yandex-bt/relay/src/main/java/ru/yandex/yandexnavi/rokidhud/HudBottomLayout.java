@@ -106,13 +106,13 @@ public final class HudBottomLayout {
         List<?> recommended=b instanceof List?(List<?>)b:null;
         if(arrows.isEmpty())return;
         int n=Math.min(arrows.size(),5);
-        float start=170;
+        float start=178;
         for(int i=0;i<n;i++) {
             Object item=arrows.get(i);
             boolean active=recommended!=null && i<recommended.size()
                 && Boolean.TRUE.equals(recommended.get(i));
             String val=item==null?"":String.valueOf(item);
-            text(c,p,fit(val,25,p,16f),start+i*27,619,16,active?GREEN:MUTED,active);
+            text(c,p,fit(val,26,p,15f),start+i*27,612,15,active?GREEN:MUTED,active);
         }
     }
     private static boolean miniMap(Canvas c,View hud,RectF bounds) {
@@ -136,36 +136,34 @@ public final class HudBottomLayout {
         double metres=valueDouble(hud,"distanceMeters",Double.NaN);
         String road=valueString(hud,"road");
 
-        // No graphic or background in the top two thirds.
-        text(out,p,"СКОРОСТЬ",17,480,12,MUTED,false);
-        text(out,p,speed>=0 ? String.valueOf(speed) : "—",17,520,36,WHITE,true);
-        text(out,p,"км/ч",84,518,13,MUTED,false);
+        // True alpha background: all pixels except glyphs and mini-map stay transparent.
+        text(out,p,"СКОРОСТЬ",14,472,11,MUTED,false);
+        text(out,p,speed>=0 ? String.valueOf(speed) : "—",14,516,37,WHITE,true);
+        text(out,p,"км/ч",78,511,12,MUTED,false);
         if(limit>0 && limit<200) {
             p.setStyle(Paint.Style.STROKE);p.setColor(GREEN);p.setStrokeWidth(2.5f);
-            out.drawCircle(115,504,17,p);
+            out.drawCircle(124,499,16,p);
             String n=String.valueOf(limit);
-            p.setTextAlign(Paint.Align.CENTER);
-            text(out,p,n,115-n.length()*5,510,14,GREEN,true);
+            text(out,p,n,124-n.length()*4.4f,504,13,GREEN,true);
         }
         // Route ETA is not exposed by the existing TEST9 NavigationView:
         // do not calculate or invent a time from the next-turn distance.
-        text(out,p,"Прибытие: —",17,568,15,MUTED,false);
-        String now=new SimpleDateFormat("HH:mm",Locale.getDefault()).format(new Date());
-        text(out,p,"Сейчас "+now,17,606,16,GREEN,false);
+        text(out,p,"ETA —",14,559,15,MUTED,false);
+        // Current time is drawn by glasses, using its own system clock.
 
-        arrow(out,p,turn,202,505);
-        text(out,p,distance(metres),238,503,23,WHITE,true);
-        text(out,p,turnLabel(turn),235,525,15,GREEN,false);
-        if(!road.isEmpty())text(out,p,fit(road,154,p,12f),166,581,12,MUTED,false);
+        arrow(out,p,turn,198,499);
+        text(out,p,distance(metres),231,496,22,WHITE,true);
+        text(out,p,turnLabel(turn),232,520,15,GREEN,false);
+        if(!road.isEmpty())text(out,p,fit(road,173,p,12f),162,571,12,MUTED,false);
         lanes(out,p,hud);
 
-        boolean hasMini=miniMap(out,hud,new RectF(341,460,469,555));
+        boolean hasMini=miniMap(out,hud,new RectF(345,461,470,572));
         if(!hasMini) {
             p.setStyle(Paint.Style.STROKE);p.setColor(MUTED);p.setStrokeWidth(1);
-            out.drawRoundRect(new RectF(341,460,469,555),5,5,p);
-            text(out,p,"Карта",372,511,15,MUTED,false);
+            // No fictitious map: a subtle outline only while route geometry is absent.
+            out.drawRoundRect(new RectF(346,462,468,572),6,6,p);
         }
-        // Lower-right reserved for device-local Bluetooth/signal/battery icons,
+        // Lower-right y590..636 reserved for real glasses Bluetooth/Wi-Fi/battery icons,
         // drawn by Rokid receiver, not by the phone with wrong battery stats.
         out.restore();
     }
