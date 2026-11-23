@@ -53,6 +53,12 @@ jobs:
               assert "classes2.dex" in z.namelist()
           print("AXML merge smoke test OK")
           PY
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree \
+            /tmp/maps31-merge-smoke-UNSIGNED.apk AndroidManifest.xml \
+            > /tmp/maps31-merged-xmltree.txt
+          grep -q 'MapsHudKeepAliveService' /tmp/maps31-merged-xmltree.txt
+          grep -q 'MapsHudProvider' /tmp/maps31-merged-xmltree.txt
+          echo "Android aapt binary XML parse OK"
       - uses: actions/upload-artifact@v4
         with:
           name: YandexMaps31-HUD-Relay-Compiler
