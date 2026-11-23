@@ -51,7 +51,7 @@ public final class MapsHudMiniMap {
         if(bitmap==null || bitmap.isRecycled())return false;
         int w=bitmap.getWidth(),h=bitmap.getHeight();
         if(w<DW/2||h<DH/2)return false;
-        int[] seen=new int[16];
+        int[] seen=new int[64];
         int varied=0;
         for(int y=4;y<h;y+=9)for(int x=4;x<w;x+=9) {
             int col=bitmap.getPixel(x,y);
