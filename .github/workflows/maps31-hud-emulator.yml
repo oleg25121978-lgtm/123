@@ -1,0 +1,73 @@
+name: Android emulator HUD screenshot test
+on:
+  push:
+    branches: [feature/maps31-bg-lanes-minimap-v2]
+    paths:
+      - 'yandex-bt/maps-relay/src/debug/**'
+      - '.github/workflows/maps31-hud-emulator.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  hud-screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile debug render harness and actual Maps HUD classes
+        working-directory: yandex-bt
+        run: gradle --no-daemon :maps-relay:assembleDebug
+      - name: Boot emulator and capture rendered HUD
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 32
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb shell wm size 480x640
+            adb shell wm density 160
+            adb install -r yandex-bt/maps-relay/build/outputs/apk/debug/maps-relay-debug.apk
+            adb logcat -c
+            adb shell am start -W -n ru.rokidhud.mapsrelay.compiler/ru.rokidhud.mapsrelay.HudScreenshotActivity
+            sleep 5
+            adb logcat -d -s Maps31PreviewTest:I Maps31PreviewTest:E > hud-preview-log.txt
+            cat hud-preview-log.txt
+            grep -q "PASS 480x640" hud-preview-log.txt
+            mkdir -p yandex-maps-v31/preview
+            adb exec-out screencap -p > yandex-maps-v31/preview/emulator-hud-sample.png
+            file yandex-maps-v31/preview/emulator-hud-sample.png
+      - name: Save Android emulator screenshot as workflow artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Maps31-HUD-Android-Emulator-Sample-Screenshot
+          path: |
+            yandex-maps-v31/preview/emulator-hud-sample.png
+            hud-preview-log.txt
+      - name: Publish screenshot to branch (sample/test fixture, not real Yandex route)
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add yandex-maps-v31/preview/emulator-hud-sample.png
+          git commit -m "Store emulator screenshot of actual HUD renderer with sample route data" || exit 0
+          git push origin HEAD:feature/maps31-bg-lanes-minimap-v2 || echo "Screenshot remains in Actions artifact; branch push unavailable"
