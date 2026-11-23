@@ -1,0 +1,39 @@
+name: Publish macOS Intel Rokid HUD receiver APK
+on:
+  push:
+    branches: [feature/maps31-bg-lanes-minimap-v2]
+    paths:
+      - '.github/workflows/maps31-publish-macos-receiver.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch verified macOS Intel receiver build
+        uses: actions/download-artifact@v4
+        with:
+          name: Maps31-Rokid-Receiver-macOS-Intel
+          run-id: 45260731577
+          github-token: ${{ github.token }}
+          path: /tmp/maps31-macos-receiver
+      - name: Preserve direct signed APK in the working branch
+        run: |
+          set -eu
+          ls -lh /tmp/maps31-macos-receiver
+          receiver="$(find /tmp/maps31-macos-receiver -type f -name '*.apk' -print -quit)"
+          test -n "$receiver"
+          file "$receiver" | grep -q 'Zip archive data'
+          unzip -l "$receiver" | grep -q 'classes.dex'
+          mkdir -p yandex-maps-v31/test-builds
+          cp "$receiver" yandex-maps-v31/test-builds/Maps31_Rokid_Receiver_macOS_Intel.apk
+          shasum -a 256 yandex-maps-v31/test-builds/*.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add yandex-maps-v31/test-builds/Maps31_Rokid_Receiver_macOS_Intel.apk
+          git commit -m "Publish signed Rokid receiver built on macOS Intel" || exit 0
+          git push origin HEAD:feature/maps31-bg-lanes-minimap-v2
