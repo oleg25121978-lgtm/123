@@ -22,7 +22,11 @@ public final class MapsHudKeepAliveService extends Service {
         }
     }
     @Override public int onStartCommand(Intent intent,int flags,int startId) {
-        Notification notification=new Notification.Builder(this,CHANNEL)
+        // Android 7 and earlier have no notification-channel constructor.
+        Notification.Builder builder=Build.VERSION.SDK_INT>=26
+            ? new Notification.Builder(this,CHANNEL)
+            : new Notification.Builder(this);
+        Notification notification=builder
             .setSmallIcon(android.R.drawable.ic_menu_directions)
             .setContentTitle("Яндекс Карты → Rokid")
             .setContentText("Передача данных маршрута на очки")
