@@ -372,10 +372,16 @@ public final class MapsHudProvider extends ContentProvider {
     private void sample(){
         Activity a=activity.get();
         if(a==null||a.isDestroyed()||a.isFinishing()){
-            frame=backgroundFrame();return;
+            frame=backgroundFrame();
+            if(frame==null && ++idleTicks>35)stopKeepAlive();
+            return;
         }
         View root=a.getWindow()==null?null:a.getWindow().getDecorView();
-        if(root==null){frame=backgroundFrame();return;}
+        if(root==null){
+            frame=backgroundFrame();
+            if(frame==null && ++idleTicks>35)stopKeepAlive();
+            return;
+        }
         Widgets w=new Widgets();
         find(root,w,0);
         // Once a real route has been confirmed, retain *those same* native
