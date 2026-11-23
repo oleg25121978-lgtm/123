@@ -4,6 +4,7 @@ on:
     branches: [feature/yandex-maps-hud-v31, feature/maps31-maneuver-no-background, feature/maps31-hud-live-preview, feature/maps31-bg-lanes-minimap-v2]
     paths:
       - 'yandex-bt/maps-relay/**'
+      - 'yandex-maps-v31/repack_maps31.py'
       - 'yandex-bt/settings.gradle'
       - '.github/workflows/maps31-hud-probe.yml'
   workflow_dispatch:
@@ -21,6 +22,37 @@ jobs:
       - name: Compile Yandex Maps module
         working-directory: yandex-bt
         run: gradle --no-daemon :maps-relay:assembleDebug :maps-glasses:assembleDebug
+      - name: Verify lossless AXML merge into Android test APK
+        run: |
+          python3 -m py_compile yandex-maps-v31/repack_maps31.py
+          python3 yandex-maps-v31/repack_maps31.py \
+            yandex-bt/maps-glasses/build/outputs/apk/debug/maps-glasses-debug.apk \
+            yandex-bt/maps-relay/build/outputs/apk/debug/maps-relay-debug.apk \
+            /tmp/maps31-merge-smoke-UNSIGNED.apk
+          python3 - <<'PY'
+          import importlib.util,zipfile,struct
+          p="yandex-maps-v31/repack_maps31.py"
+          spec=importlib.util.spec_from_file_location("repacker",p)
+          m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+          with zipfile.ZipFile("/tmp/maps31-merge-smoke-UNSIGNED.apk") as z:
+              raw=z.read("AndroidManifest.xml")
+              pool=None;pos=8;components=set();permissions=set()
+              while pos<len(raw):
+                  t,h,n=m.chunk(raw,pos)
+                  if t==1:pool=m.StringPool(raw[pos:pos+n])
+                  if t==0x0102:
+                      e=raw[pos:pos+n]
+                      name=pool.get(struct.unpack_from("<I",e,20)[0])
+                      value=m.attr_value(e,pool,"name")
+                      if name in ("service","provider"):components.add((name,value))
+                      if name=="uses-permission":permissions.add(value)
+                  pos+=n
+              assert ("service",m.SERVICE) in components,components
+              assert ("provider",m.PROVIDER) in components,components
+              assert set(m.PERMISSIONS)<=permissions,permissions
+              assert "classes2.dex" in z.namelist()
+          print("AXML merge smoke test OK")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: YandexMaps31-HUD-Relay-Compiler
