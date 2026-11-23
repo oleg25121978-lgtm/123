@@ -198,16 +198,69 @@ public final class MapsHudProvider extends ContentProvider {
         p.setTextSize(size);
         c.drawText(s,x,y,p);
     }
+    /**
+     * Preserve the *actual* native Yandex turn arrow and distance, without
+     * drawing its opaque rounded phone panel on transparent optical glasses.
+     * Capture ONLY this native widget, never the Yandex map/screen.
+     *
+     * Do not mutate backgrounds on live Android views: that would cause
+     * layout/visual changes on the Huawei display. Instead remove the
+     * dominant opaque panel paint on a private small ARGB_8888 bitmap.
+     */
+    private static void clearPanelBackground(Bitmap image) {
+        int width=image.getWidth(), height=image.getHeight();
+        if(width<5 || height<5)return;
+        int[] pixels=new int[width*height];
+        image.getPixels(pixels,0,width,0,0,width,height);
+        int[] count=new int[32768],rs=new int[32768],gs=new int[32768],bs=new int[32768];
+        int valid=0,best=0,bucket=-1;
+        for(int color:pixels) {
+            int alpha=Color.alpha(color);
+            if(alpha<240)continue;
+            valid++;
+            int r=Color.red(color),g=Color.green(color),b=Color.blue(color);
+            int key=((r>>3)<<10)|((g>>3)<<5)|(b>>3);
+            count[key]++;rs[key]+=r;gs[key]+=g;bs[key]+=b;
+            if(count[key]>best){best=count[key];bucket=key;}
+        }
+        // Never strip actual arrow glyphs from a transparent icon: require a
+        // panel-size dominant color, not merely the most frequent icon stroke.
+        if(bucket<0 || best<width*height*0.18f || best<valid*0.42f)return;
+        int br=rs[bucket]/best,bg=gs[bucket]/best,bb=bs[bucket]/best;
+        for(int i=0;i<pixels.length;i++) {
+            int color=pixels[i],alpha=Color.alpha(color);
+            if(alpha==0)continue;
+            int dr=Math.abs(Color.red(color)-br);
+            int dg=Math.abs(Color.green(color)-bg);
+            int db=Math.abs(Color.blue(color)-bb);
+            int diff=Math.max(dr,Math.max(dg,db));
+            if(diff<=31) {
+                pixels[i]=Color.TRANSPARENT;
+            }else if(diff<55) {
+                int adjusted=Math.round(alpha*(diff-31f)/24f);
+                pixels[i]=(color&0x00FFFFFF)|(adjusted<<24);
+            }
+        }
+        image.setPixels(pixels,0,width,0,0,width,height);
+    }
     private static void drawNativeWidget(Canvas c,View source,Rect dest){
         if(source==null || source.getWidth()<1 || source.getHeight()<1)return;
-        c.save();
-        c.clipRect(dest);
-        c.translate(dest.left,dest.top);
-        float scale=Math.min(dest.width()/(float)source.getWidth(),
-                             dest.height()/(float)source.getHeight());
-        c.scale(scale,scale);
-        source.draw(c);
-        c.restore();
+        int dw=dest.width(),dh=dest.height();
+        if(dw<=0||dh<=0)return;
+        Bitmap isolated=Bitmap.createBitmap(dw,dh,Bitmap.Config.ARGB_8888);
+        try {
+            Canvas sub=new Canvas(isolated);
+            sub.drawColor(Color.TRANSPARENT,PorterDuff.Mode.CLEAR);
+            float scale=Math.min(dw/(float)source.getWidth(),
+                                 dh/(float)source.getHeight());
+            sub.save();
+            sub.scale(scale,scale);
+            source.draw(sub);
+            sub.restore();
+            clearPanelBackground(isolated);
+            Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+            c.drawBitmap(isolated,dest.left,dest.top,p);
+        }finally{isolated.recycle();}
     }
     private static Bitmap render(Widgets w){
         Bitmap bitmap=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);
@@ -220,9 +273,9 @@ public final class MapsHudProvider extends ContentProvider {
         String eta=arrival(w.eta);
         // No "calculated" placeholders or guessed arrival.
         if(eta!=null)txt(c,p,"ETA "+eta,16,604,13,GREEN);
-        // Native Yandex arrow, distance and lanes are captured from just
+        // Transparent smaller native Yandex arrow + distance, from just
         // ContextManeuverView, never from the phone map or menu.
-        drawNativeWidget(c,w.maneuver,new Rect(145,493,342,609));
+        drawNativeWidget(c,w.maneuver,new Rect(163,527,301,610));
         // The true map route geometry is not exposed by these Views; no fake map.
         // System status and time remain exclusively on the glasses receiver.
         return bitmap;
