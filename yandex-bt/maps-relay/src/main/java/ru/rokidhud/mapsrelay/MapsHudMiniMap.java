@@ -103,8 +103,11 @@ public final class MapsHudMiniMap {
             PixelCopy.request(surface,src,dst,result->{
                 inFlight=false;
                 if(result==PixelCopy.SUCCESS && valid(dst)){
+                    Log.i(TAG,"PixelCopy SurfaceView succeeded, 125x111");
                     replace(dst,1);
                 }else{
+                    Log.w(TAG,"PixelCopy rejected frame, result="+result+
+                        " colorful="+(result==PixelCopy.SUCCESS && valid(dst)));
                     dst.recycle();
                 }
             },main);
