@@ -156,12 +156,33 @@ public final class MapsHudProvider extends ContentProvider {
     }
     private static String speed(View view){
         if(view==null)return null;
-        ArrayList<String> s=new ArrayList<>();
-        texts(view,s,0);
-        for(String t:s){
-            if(Pattern.matches("\\d{1,3}",t))return t;
+        // NaviKit's real current-speed TextView: don't pick a speed-limit label.
+        try {
+            java.lang.reflect.Method getter=view.getClass().getMethod("getTextSpeedValue");
+            Object result=getter.invoke(view);
+            if(result instanceof TextView){
+                CharSequence raw=((TextView)result).getText();
+                if(raw!=null){
+                    String n=raw.toString().trim();
+                    if(Pattern.matches("\\d{1,3}",n))return n;
+                }
+            }
+        }catch(Throwable error){
+            Log.d(TAG,"Current speed TextView unavailable",error);
         }
-        return null;
+        return null; // A missing speed is not a reason to invent one.
+    }
+    private static boolean actualManeuver(View view){
+        if(view==null||view.getWidth()<1||view.getHeight()<1||!view.isShown())
+            return false;
+        try {
+            java.lang.reflect.Method getter=view.getClass().getMethod("getCanBeVisible");
+            Object yes=getter.invoke(view);
+            if(yes instanceof Boolean && !((Boolean)yes))return false;
+        }catch(Throwable ignored) {
+            // Some versions may remove the method; shown View is minimum evidence.
+        }
+        return true;
     }
     private static void txt(Canvas c,Paint p,String s,float x,float y,int size,int color){
         if(s==null||s.isEmpty())return;
@@ -210,8 +231,7 @@ public final class MapsHudProvider extends ContentProvider {
         Widgets w=new Widgets();
         find(root,w,0);
         // Do nothing on license, onboarding, login or route selection.
-        if(w.maneuver==null || w.maneuver.getWidth()==0 || w.maneuver.getHeight()==0
-           || !w.maneuver.isShown()){
+        if(!actualManeuver(w.maneuver)){
             frame=null;detected=0;return;
         }
         if(++detected<3)return;
