@@ -125,7 +125,7 @@ def start_tag(pool,tag,attributes,android_index):
         else:raise ValueError(kind)
         attrdata+=struct.pack("<III",ns,name,raw)+typed
     total=36+len(attrdata)
-    return struct.pack("<HHIIIIIIHHHHHH",0x0102,16,total,0,0xFFFFFFFF,
+    return struct.pack("<HHIIIIIHHHHHH",0x0102,16,total,0,0xFFFFFFFF,
         0xFFFFFFFF,pool.index(tag),20,20,len(attributes),0,0,0)+attrdata
 
 def end_tag(pool,tag):
