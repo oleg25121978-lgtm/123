@@ -29,3 +29,13 @@ jobs:
         with:
           name: YandexMaps31-HUD-Rokid-Receiver
           path: yandex-bt/maps-glasses/build/outputs/apk/debug/*.apk
+
+      - name: Package Android signing tools for local verification
+        run: |
+          mkdir -p signing-tools
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" signing-tools/apksigner.jar
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" signing-tools/zipalign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YandexMaps31-HUD-Signing-Tools
+          path: signing-tools/
