@@ -35,6 +35,7 @@ jobs:
           mkdir -p signing-tools
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" signing-tools/apksigner.jar
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" signing-tools/zipalign
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib64/libc++.so" signing-tools/libc++.so
       - uses: actions/upload-artifact@v4
         with:
           name: YandexMaps31-HUD-Signing-Tools
