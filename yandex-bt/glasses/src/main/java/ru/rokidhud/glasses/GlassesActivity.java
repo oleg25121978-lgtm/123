@@ -180,63 +180,67 @@ public final class GlassesActivity extends Activity {
         reader=new Thread(()->receive(address),"test9-hud-glasses");
         reader.start();
     }
-    /** Transparent, compact system icons in lower-right of the 480x640 HUD. */
+    /** Real, on-glasses status icons. Roughly same visual height as 16px clock. */
     private void drawGlassesStatus(Canvas canvas, Paint p, int width, int height) {
         if (width<=0 || height<=0) return;
         canvas.save();
         canvas.scale(width/480f,height/640f);
         final int green=Color.rgb(106,247,133);
         final int dull=Color.rgb(99,139,110);
-        p.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
+        p.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));
         p.setStyle(Paint.Style.FILL);
-        p.setStrokeWidth(2f);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeWidth(1.4f);
         p.setColor(green);
         p.setTextSize(16f);
-        // Time is local to Rokid rather than the Huawei phone.
         String clock=new SimpleDateFormat("HH:mm",Locale.getDefault()).format(new Date());
-        canvas.drawText(clock,14,619,p);
-        // Bluetooth: green when a Rokid Bluetooth connection is enabled.
-        float bx=353f,by=613f;
-        p.setColor(btEnabled?green:dull);p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(2.1f);p.setStrokeCap(Paint.Cap.ROUND);
-        Path path=new Path();
-        path.moveTo(bx,by-12);path.lineTo(bx,by+12);
-        path.moveTo(bx-8,by-8);path.lineTo(bx+8,by+8);
-        path.lineTo(bx,by+12);path.lineTo(bx,by-12);
-        path.lineTo(bx+8,by-8);path.lineTo(bx-8,by+8);
-        canvas.drawPath(path,p);
-        p.setStyle(Paint.Style.FILL);
-        if(live && active!=null && active.isConnected())canvas.drawCircle(365,602,3,p);
-        // Wi-Fi: only actual connectivity. Unknown RSSI draws a small dot, not fake bars.
-        p.setColor(wifiConnected?green:dull);p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(2f);
-        float wx=387,wy=615;
-        int bars=wifiSignal<0?0:Math.min(4,Math.max(0,wifiSignal));
-        if(bars==0 && wifiConnected){
-            canvas.drawArc(wx-6,wy-6,wx+6,wy+6,220,100,false,p);
-        } else for(int k=0;k<bars;k++){
-            float radius=5+k*4;
-            canvas.drawArc(wx-radius,wy-radius,wx+radius,wy+radius,220,100,false,p);
-        }
-        if(!wifiConnected) canvas.drawLine(wx-10,wy-13,wx+11,wy+9,p);
-        p.setStyle(Paint.Style.FILL);canvas.drawCircle(wx,wy,2.4f,p);
+        canvas.drawText(clock,14,626,p);
 
-        // Battery capacity is read from Rokid's battery broadcast.
-        float left=409,top=602,right=445,bottom=622;
-        p.setColor(glassesBattery>=0 && glassesBattery<=15?Color.rgb(245,100,89):green);
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.8f);
-        canvas.drawRoundRect(left,top,right,bottom,3,3,p);
-        canvas.drawRect(right+1,608,right+5,616,p);
+        // 15px-high Bluetooth glyph; indicate the actual incoming BT stream.
+        float bx=356f,by=614f;
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(1.4f);
+        p.setColor(btEnabled?green:dull);
+        Path b=new Path();
+        b.moveTo(bx,by-8);b.lineTo(bx,by+8);
+        b.moveTo(bx-5,by-5);b.lineTo(bx+5,by+5);
+        b.lineTo(bx,by+8);b.lineTo(bx,by-8);
+        b.lineTo(bx+5,by-5);b.lineTo(bx-5,by+5);
+        canvas.drawPath(b,p);
+        p.setStyle(Paint.Style.FILL);
+        if(live && active!=null && active.isConnected())
+            canvas.drawCircle(363,607,1.8f,p);
+
+        // Wi-Fi, 14-16px high. No invented RSSI bars when not readable.
+        float wx=385f,wy=620f;
+        p.setColor(wifiConnected?green:dull);
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.4f);
+        int bars=wifiSignal<0?(wifiConnected?1:0):Math.min(3,Math.max(0,wifiSignal));
+        for(int k=0;k<bars;k++) {
+            float radius=4+k*3.3f;
+            canvas.drawArc(wx-radius,wy-radius,wx+radius,wy+radius,225,90,false,p);
+        }
+        if(!wifiConnected)canvas.drawLine(wx-7,wy-10,wx+7,wy+3,p);
+        p.setStyle(Paint.Style.FILL);
+        canvas.drawCircle(wx,wy,1.7f,p);
+
+        // Reduced battery outline (26 x 14 px) with genuine Rokid percentage.
+        float left=405,top=607,right=431,bottom=621;
+        int batteryColor=glassesBattery>=0 && glassesBattery<=15
+            ? Color.rgb(245,100,89):green;
+        p.setColor(batteryColor);
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.4f);
+        canvas.drawRoundRect(left,top,right,bottom,2.2f,2.2f,p);
+        canvas.drawRect(right+1,611,right+3,617,p);
         if(glassesBattery>=0) {
             p.setStyle(Paint.Style.FILL);
             float fraction=Math.max(0f,Math.min(1f,glassesBattery/100f));
-            if(fraction>0) canvas.drawRect(left+3,top+3,left+3+fraction*30,bottom-3,p);
+            if(fraction>0)canvas.drawRect(left+2,top+2,left+2+fraction*22,bottom-2,p);
         }
-        p.setStyle(Paint.Style.FILL);p.setTextSize(13f);
-        p.setColor(green);
+        p.setStyle(Paint.Style.FILL);p.setColor(green);p.setTextSize(12f);
         String charge=glassesBattery<0?"—":String.valueOf(glassesBattery);
-        canvas.drawText(charge,451,617,p);
-        if(glassesCharging)canvas.drawText("+",421,598,p);
+        canvas.drawText(charge,438,620,p);
+        if(glassesCharging)canvas.drawText("+",413,604,p);
         canvas.restore();
     }
 
