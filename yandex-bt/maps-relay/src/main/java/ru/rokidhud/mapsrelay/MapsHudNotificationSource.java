@@ -67,7 +67,8 @@ public final class MapsHudNotificationSource {
                 Matcher dm=DISTANCE.matcher(summary);
                 String distance=dm.find()?dm.group(1)+" "+dm.group(2):null;
                 Matcher em=ARRIVAL.matcher(summary);
-                String eta=em.find()?em.group():null;
+                String eta=(low.contains("прибыт")||low.contains("eta")||
+                    low.contains("arrival")) && em.find() ? em.group() : null;
                 int turn=0;
                 if(low.contains("разворот"))turn=2;
                 else if(low.contains("налево")||low.contains("левее"))turn=1;
