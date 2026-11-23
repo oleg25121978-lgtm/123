@@ -9,6 +9,8 @@ import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Intent;
+import android.os.Build;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -58,6 +60,12 @@ public final class MapsHudProvider extends ContentProvider {
     private static final int DIM=Color.rgb(95,158,114);
     private final Handler handler=new Handler(Looper.getMainLooper());
     private volatile byte[] frame;
+    private volatile byte[] lastGoodFrame;
+    private long lastGoodFrameAt;
+    private final MapsHudMiniMap miniMap=new MapsHudMiniMap();
+    private boolean keepAliveStarted=false;
+    private int idleTicks=0;
+    private static final long CACHED_FRAME_GRACE_MS=15000L;
     private volatile boolean running=true;
     private WeakReference<Activity> activity=new WeakReference<>(null);
     private boolean foreground=false, permissionAsked=false;
@@ -83,13 +91,23 @@ public final class MapsHudProvider extends ContentProvider {
             }
         }
         @Override public void onActivityPaused(Activity a){
-            if(activity.get()==a)foreground=false;
+            if(activity.get()!=a)return;
+            foreground=false;
+            // TEST9 rule: pausing an Activity is NOT equivalent to cancelling
+            // active navigation. Preserve the actual guidance Views and sender.
+            // A running foreground service keeps the Bluetooth process alive.
         }
         @Override public void onActivityDestroyed(Activity a){
             if(activity.get()==a){
                 activity=new WeakReference<>(null);
-                frame=null; navigationFrames=0; routeArmed=false;
-                mostRecentManeuver=null; lastLiveWidgets=null; foreground=false;
+                foreground=false;
+                lastLiveWidgets=null;
+                mostRecentManeuver=null;
+                navigationFrames=0;
+                // Android may destroy the UI while its guidance service runs.
+                // Retain only a SHORT last-good-frame grace; do not label a
+                // permanently frozen maneuver as live navigation.
+                frame=recentFrame();
             }
         }
         @Override public void onActivityCreated(Activity a,Bundle saved){}
@@ -101,7 +119,7 @@ public final class MapsHudProvider extends ContentProvider {
         @Override public void run(){
             if(!running)return;
             try { sample(); }
-            catch(Throwable e){ Log.w(TAG,"sample: skip frame",e); frame=null; }
+            catch(Throwable e){ Log.w(TAG,"sample: skip frame",e); frame=recentFrame(); }
             handler.postDelayed(this,PERIOD);
         }
     };
@@ -323,7 +341,7 @@ public final class MapsHudProvider extends ContentProvider {
         }finally{thumbnail.recycle();}
     }
 
-    private static Bitmap render(Widgets w){
+    private Bitmap render(Widgets w){
         Bitmap bitmap=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);
         Canvas c=new Canvas(bitmap);
         c.drawColor(Color.TRANSPARENT,PorterDuff.Mode.CLEAR);
@@ -337,11 +355,12 @@ public final class MapsHudProvider extends ContentProvider {
         // Transparent smaller native Yandex arrow + distance, from just
         // ContextManeuverView, never from the phone map or menu.
         drawNativeWidget(c,w.maneuver,new Rect(163,527,301,610));
-        // Capture lane arrows only if Yandex actually provides a dedicated widget.
+        // Native actual lanes are separated, bigger and below the turn arrow.
         if(w.lanes!=null && w.lanes!=w.maneuver)
-            drawNativeWidget(c,w.lanes,new Rect(157,585,337,621));
-        // Read a real MapKit map (if its renderer permits Android View.draw).
-        drawRealMapThumbnail(c,w.map,new Rect(347,468,472,579));
+            drawNativeWidget(c,w.lanes,new Rect(157,580,341,625));
+        // Real MapKit GPU pixels: PixelCopy/TextureView instead of View.draw.
+        // Both roads and user marker pixels are resampled from a 7x crop.
+        miniMap.draw(c,new Rect(347,468,472,579));
         // Neither geometry nor lane arrows are fabricated when unavailable.
         // System status and time remain exclusively on the glasses receiver.
         return bitmap;
@@ -349,17 +368,21 @@ public final class MapsHudProvider extends ContentProvider {
     private void sample(){
         Activity a=activity.get();
         if(a==null||a.isDestroyed()||a.isFinishing()){
-            frame=null;navigationFrames=0;routeArmed=false;
-            mostRecentManeuver=null;return;
+            frame=recentFrame();return;
         }
         View root=a.getWindow()==null?null:a.getWindow().getDecorView();
-        if(root==null){frame=null;navigationFrames=0;routeArmed=false;return;}
+        if(root==null){frame=recentFrame();return;}
         Widgets w=new Widgets();
         find(root,w,0);
         // Once a real route has been confirmed, retain *those same* native
         // guidance Views across Activity.onPause(). In Android the window may
         // be hidden while the underlying Navigation model continues updating.
         // Do not read any other app's Views or switch to a fake route.
+        if(foreground){
+            // Look specifically for native lane glyphs, including lane groups
+            // embedded inside ContextManeuverView.
+            w.lanes=MapsHudLanes.locate(w.maneuver,root);
+        }
         if(!foreground && routeArmed && lastLiveWidgets!=null){
             if(w.maneuver==null)w.maneuver=lastLiveWidgets.maneuver;
             if(w.speed==null)w.speed=lastLiveWidgets.speed;
@@ -368,12 +391,15 @@ public final class MapsHudProvider extends ContentProvider {
             if(w.map==null)w.map=lastLiveWidgets.map;
         }
         if(!actualManeuver(w.maneuver,foreground)){
-            if(foreground || !routeArmed) {
-                frame=null;navigationFrames=0;routeArmed=false;
-                mostRecentManeuver=null;lastLiveWidgets=null;
+            if(foreground){
+                // Explicit foreground return without a maneuver: route stopped
+                // or navigation UI dismissed. Clear the cached maneuver.
+                clearRoute();
+            }else{
+                frame=recentFrame();
+                idleTicks++;
+                if(idleTicks>35 && frame==null) stopKeepAlive();
             }
-            // Do not erase the route merely because Android hid its window.
-            // A previously delivered frame may remain until a live update.
             return;
         }
         // Ported from TEST9: never arm on onboarding, stale view or route selection.
@@ -388,15 +414,24 @@ public final class MapsHudProvider extends ContentProvider {
             Log.i(TAG,"TEST9-style route gate armed for live Maps guidance widget");
         }
         lastActiveNavigationMs=System.currentTimeMillis();
-        if(foreground)lastLiveWidgets=w;
-        if(foreground)ensureBluetooth(a);
+        idleTicks=0;
+        if(foreground) {
+            lastLiveWidgets=w;
+            ensureBluetooth(a);
+            startKeepAlive(a); // Must be called BEFORE Activity.onPause().
+            miniMap.sample(w.map);
+        }
         Bitmap bmp=render(w);
         try{
             ByteArrayOutputStream stream=new ByteArrayOutputStream(25000);
             if(bmp.compress(Bitmap.CompressFormat.PNG,100,stream)){
                 byte[] data=stream.toByteArray();
-                frame=data.length<=300000?data:null;
-            }else frame=null;
+                if(data.length<=300000) {
+                    frame=data;
+                    lastGoodFrame=data;
+                    lastGoodFrameAt=System.currentTimeMillis();
+                } else frame=recentFrame();
+            }else frame=recentFrame();
         }finally{bmp.recycle();}
         if(navigationFrames==3){
             navigationFrames=4;
@@ -405,6 +440,46 @@ public final class MapsHudProvider extends ContentProvider {
               +" confirmedETA="+arrival(w.eta));
         }
     }
+    /** Last confirmed navigation frame; cannot be reused indefinitely. */
+    private byte[] recentFrame() {
+        if(!routeArmed || lastGoodFrame==null)return null;
+        if(System.currentTimeMillis()-lastGoodFrameAt>CACHED_FRAME_GRACE_MS)return null;
+        return lastGoodFrame;
+    }
+    private void clearRoute(){
+        routeArmed=false;
+        navigationFrames=0;
+        mostRecentManeuver=null;
+        lastLiveWidgets=null;
+        frame=null;
+        lastGoodFrame=null;
+        lastGoodFrameAt=0;
+        miniMap.clear();
+        stopKeepAlive();
+    }
+    private void startKeepAlive(Activity a){
+        if(keepAliveStarted||!foreground||!routeArmed)return;
+        try{
+            Intent intent=new Intent(a,MapsHudKeepAliveService.class);
+            if(Build.VERSION.SDK_INT>=26)a.startForegroundService(intent);
+            else a.startService(intent);
+            keepAliveStarted=true;
+            Log.i(TAG,"Maps31 foreground HUD keepalive started");
+        }catch(Throwable ex){
+            Log.w(TAG,"Foreground HUD keepalive unavailable: check injected service declaration",ex);
+        }
+    }
+    private void stopKeepAlive(){
+        if(!keepAliveStarted)return;
+        Context ctx=getContext();
+        if(ctx!=null){
+            try{ctx.stopService(new Intent(ctx,MapsHudKeepAliveService.class));}
+            catch(Throwable ex){Log.w(TAG,"stopKeepAlive",ex);}
+        }
+        keepAliveStarted=false;
+        idleTicks=0;
+    }
+
     private void ensureBluetooth(Activity a){
         Context ctx=getContext();
         if(ctx==null)return;
