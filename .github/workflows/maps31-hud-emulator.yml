@@ -60,6 +60,20 @@ jobs:
             adb exec-out screencap -p > yandex-maps-v31/preview/emulator-hud-sample.png
             file yandex-maps-v31/preview/emulator-hud-sample.png
             grep -q "Maps31PreviewTest: PASS 480x640" hud-all-logcat.txt
+            # Verify the PixelCopy pathway used for a genuine MapKit GPU surface.
+            adb logcat -c
+            adb shell am start -W -n ru.rokidhud.mapsrelay.compiler/ru.rokidhud.mapsrelay.HudGpuMapTestActivity
+            sleep 9
+            adb logcat -d -s MapGPUProbe:I MapGPUProbe:E | tee hud-gpu-log.txt
+            grep -q "PASS PixelCopy SurfaceView 125x111" hud-gpu-log.txt
+            # Verify a foreground connected-device service survives minimization.
+            adb shell am start-foreground-service -n ru.rokidhud.mapsrelay.compiler/ru.rokidhud.mapsrelay.MapsHudKeepAliveService
+            sleep 2
+            adb shell input keyevent KEYCODE_HOME
+            sleep 3
+            adb shell dumpsys activity services ru.rokidhud.mapsrelay.compiler | tee hud-service-log.txt
+            grep -q 'MapsHudKeepAliveService' hud-service-log.txt
+            echo 'PASS Maps31 keepalive service survives HOME'
       - name: Save Android emulator screenshot as workflow artifact
         uses: actions/upload-artifact@v4
         if: always()
@@ -69,6 +83,8 @@ jobs:
             yandex-maps-v31/preview/emulator-hud-sample.png
             hud-preview-log.txt
             hud-all-logcat.txt
+            hud-gpu-log.txt
+            hud-service-log.txt
       - name: Publish screenshot to branch (sample/test fixture, not real Yandex route)
         if: success()
         env:
