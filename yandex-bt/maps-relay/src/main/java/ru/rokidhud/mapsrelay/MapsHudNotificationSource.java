@@ -61,8 +61,10 @@ public final class MapsHudNotificationSource {
                     low.contains("направо")||low.contains("налево")||
                     low.contains("разворот")||low.contains("съезд")||
                     low.contains("прямо")||low.contains("держитесь")||
-                    low.contains("двигайтесь")||low.contains("маршрут")||
-                    low.contains("navigation")||low.contains("turn ");
+                    low.contains("двигайтесь")||low.contains("через ")||
+                    low.contains("exit ")||low.contains("turn ");
+                // Generic "маршрут 5 км" isn't distance to the next turn.
+                // Only explicit maneuver language may drive the HUD.
                 if(!nav)continue;
                 Matcher dm=DISTANCE.matcher(summary);
                 String distance=dm.find()?dm.group(1)+" "+dm.group(2):null;
