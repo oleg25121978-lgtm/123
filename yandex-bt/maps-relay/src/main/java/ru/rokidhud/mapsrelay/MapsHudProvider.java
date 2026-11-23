@@ -64,6 +64,7 @@ public final class MapsHudProvider extends ContentProvider {
     private int navigationFrames=0;
     private boolean routeArmed=false;
     private View mostRecentManeuver;
+    private Widgets lastLiveWidgets; // current route's verified original Android Views
     private long lastActiveNavigationMs;
     private volatile BluetoothSocket client;
     private Thread serverThread;
@@ -71,11 +72,15 @@ public final class MapsHudProvider extends ContentProvider {
 
     private final Application.ActivityLifecycleCallbacks callbacks=new Application.ActivityLifecycleCallbacks(){
         @Override public void onActivityResumed(Activity a){
+            boolean different=activity.get()!=a;
             activity=new WeakReference<>(a);
             foreground=true;
-            navigationFrames=0;
-            routeArmed=false;
-            mostRecentManeuver=null;
+            if(different){
+                navigationFrames=0;
+                routeArmed=false;
+                mostRecentManeuver=null;
+                lastLiveWidgets=null;
+            }
         }
         @Override public void onActivityPaused(Activity a){
             if(activity.get()==a)foreground=false;
@@ -84,7 +89,7 @@ public final class MapsHudProvider extends ContentProvider {
             if(activity.get()==a){
                 activity=new WeakReference<>(null);
                 frame=null; navigationFrames=0; routeArmed=false;
-                mostRecentManeuver=null; foreground=false;
+                mostRecentManeuver=null; lastLiveWidgets=null; foreground=false;
             }
         }
         @Override public void onActivityCreated(Activity a,Bundle saved){}
@@ -178,9 +183,10 @@ public final class MapsHudProvider extends ContentProvider {
         }
         return null; // A missing speed is not a reason to invent one.
     }
-    private static boolean actualManeuver(View view){
-        if(view==null||view.getWidth()<1||view.getHeight()<1||!view.isShown())
+    private static boolean actualManeuver(View view,boolean requireWindowShown){
+        if(view==null||view.getWidth()<1||view.getHeight()<1)
             return false;
+        if(requireWindowShown && !view.isShown())return false;
         try {
             java.lang.reflect.Method getter=view.getClass().getMethod("getCanBeVisible");
             Object yes=getter.invoke(view);
@@ -290,10 +296,23 @@ public final class MapsHudProvider extends ContentProvider {
         if(root==null){frame=null;navigationFrames=0;routeArmed=false;return;}
         Widgets w=new Widgets();
         find(root,w,0);
-        // Do nothing on license, onboarding, login or route selection.
-        if(!actualManeuver(w.maneuver)){
-            frame=null;navigationFrames=0;routeArmed=false;
-            mostRecentManeuver=null;return;
+        // Once a real route has been confirmed, retain *those same* native
+        // guidance Views across Activity.onPause(). In Android the window may
+        // be hidden while the underlying Navigation model continues updating.
+        // Do not read any other app's Views or switch to a fake route.
+        if(!foreground && routeArmed && lastLiveWidgets!=null){
+            if(w.maneuver==null)w.maneuver=lastLiveWidgets.maneuver;
+            if(w.speed==null)w.speed=lastLiveWidgets.speed;
+            if(w.eta==null)w.eta=lastLiveWidgets.eta;
+        }
+        if(!actualManeuver(w.maneuver,foreground)){
+            if(foreground || !routeArmed) {
+                frame=null;navigationFrames=0;routeArmed=false;
+                mostRecentManeuver=null;lastLiveWidgets=null;
+            }
+            // Do not erase the route merely because Android hid its window.
+            // A previously delivered frame may remain until a live update.
+            return;
         }
         // Ported from TEST9: never arm on onboarding, stale view or route selection.
         if(w.maneuver!=mostRecentManeuver) {
@@ -307,6 +326,7 @@ public final class MapsHudProvider extends ContentProvider {
             Log.i(TAG,"TEST9-style route gate armed for live Maps guidance widget");
         }
         lastActiveNavigationMs=System.currentTimeMillis();
+        if(foreground)lastLiveWidgets=w;
         if(foreground)ensureBluetooth(a);
         Bitmap bmp=render(w);
         try{
