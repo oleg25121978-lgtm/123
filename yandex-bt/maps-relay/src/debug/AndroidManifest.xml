@@ -2,5 +2,7 @@
   <application>
     <activity android:name="ru.rokidhud.mapsrelay.HudScreenshotActivity"
               android:exported="true" android:screenOrientation="portrait"/>
+    <activity android:name="ru.rokidhud.mapsrelay.HudGpuMapTestActivity"
+              android:exported="true" android:screenOrientation="portrait"/>
   </application>
 </manifest>
