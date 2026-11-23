@@ -116,7 +116,7 @@ public final class MapsHudProvider extends ContentProvider {
     }
 
     private static final class Widgets{
-        View eta,maneuver,speed;
+        View eta,maneuver,speed,lanes,map;
     }
     private static void find(View v,Widgets w,int depth){
         if(v==null || depth>70 || v.getVisibility()!=View.VISIBLE)return;
@@ -124,6 +124,15 @@ public final class MapsHudProvider extends ContentProvider {
         if(cls.endsWith(".ContextEtaView"))w.eta=v;
         if(cls.endsWith(".ContextManeuverView"))w.maneuver=v;
         if(cls.endsWith(".SpeedViewImpl"))w.speed=v;
+        // Only actual native lane widgets; absent lanes are never synthesized.
+        String lower=cls.toLowerCase(Locale.ROOT);
+        if(w.lanes==null && lower.contains("lane") &&
+           (lower.endsWith("view") || lower.contains("lanesign") || lower.contains("lanearrow")) &&
+           v.getWidth()>5 && v.getHeight()>5)w.lanes=v;
+        // MapKit's real map View, not the complete phone Activity or mirrored screen.
+        if(w.map==null &&
+           (cls.equals("com.yandex.mapkit.mapview.MapView") ||
+           cls.equals("com.yandex.mapkit.MapView")))w.map=v;
         if(v instanceof ViewGroup){
             ViewGroup group=(ViewGroup)v;
             for(int i=0;i<group.getChildCount();i++)find(group.getChildAt(i),w,depth+1);
@@ -268,6 +277,52 @@ public final class MapsHudProvider extends ContentProvider {
             c.drawBitmap(isolated,dest.left,dest.top,p);
         }finally{isolated.recycle();}
     }
+    /**
+     * Experimental read-only minimap. Sample an actual cropped portion of
+     * Yandex's MapKit map view at ~1:7 scale. SurfaceView-based map renderers
+     * may not provide pixels to View.draw(); in that case do not invent roads.
+     */
+    private static void drawRealMapThumbnail(Canvas out, View map, Rect dst) {
+        if(map==null || map.getWidth()<20 || map.getHeight()<20)return;
+        int width=dst.width(),height=dst.height();
+        if(width<=0||height<=0)return;
+        Bitmap thumbnail=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
+        try{
+            Canvas sub=new Canvas(thumbnail);
+            sub.drawColor(Color.TRANSPARENT,PorterDuff.Mode.CLEAR);
+            // Scale both map roads and live vehicle dot; not only the box.
+            float contentWidth=Math.min(map.getWidth(),width*7f);
+            float contentHeight=Math.min(map.getHeight(),height*7f);
+            float scale=Math.min(width/contentWidth,height/contentHeight);
+            float centerX=map.getWidth()*0.5f;
+            float centerY=map.getHeight()*0.64f; // map's typical driving focus
+            sub.save();
+            sub.scale(scale,scale);
+            sub.translate(-centerX+width/(2f*scale),
+                          -centerY+height/(2f*scale));
+            map.draw(sub);
+            sub.restore();
+            // SurfaceView-backed maps can render as a single blank color.
+            // Reject those rather than presenting a fictitious mini-map.
+            int varied=0,first=0;
+            boolean hasFirst=false;
+            for(int y=0;y<height;y+=7) {
+                for(int x=0;x<width;x+=7) {
+                    int pixel=thumbnail.getPixel(x,y);
+                    if(Color.alpha(pixel)<10)continue;
+                    int key=(pixel&0x00F0F0F0);
+                    if(!hasFirst){first=key;hasFirst=true;}
+                    else if(first!=key)varied++;
+                }
+            }
+            if(varied<12)return;
+            Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+            out.drawBitmap(thumbnail,dst.left,dst.top,p);
+        }catch(Throwable problem){
+            Log.d(TAG,"MapKit View does not support thumbnail drawing",problem);
+        }finally{thumbnail.recycle();}
+    }
+
     private static Bitmap render(Widgets w){
         Bitmap bitmap=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);
         Canvas c=new Canvas(bitmap);
@@ -282,7 +337,12 @@ public final class MapsHudProvider extends ContentProvider {
         // Transparent smaller native Yandex arrow + distance, from just
         // ContextManeuverView, never from the phone map or menu.
         drawNativeWidget(c,w.maneuver,new Rect(163,527,301,610));
-        // The true map route geometry is not exposed by these Views; no fake map.
+        // Capture lane arrows only if Yandex actually provides a dedicated widget.
+        if(w.lanes!=null && w.lanes!=w.maneuver)
+            drawNativeWidget(c,w.lanes,new Rect(157,585,337,621));
+        // Read a real MapKit map (if its renderer permits Android View.draw).
+        drawRealMapThumbnail(c,w.map,new Rect(347,468,472,579));
+        // Neither geometry nor lane arrows are fabricated when unavailable.
         // System status and time remain exclusively on the glasses receiver.
         return bitmap;
     }
@@ -304,6 +364,8 @@ public final class MapsHudProvider extends ContentProvider {
             if(w.maneuver==null)w.maneuver=lastLiveWidgets.maneuver;
             if(w.speed==null)w.speed=lastLiveWidgets.speed;
             if(w.eta==null)w.eta=lastLiveWidgets.eta;
+            if(w.lanes==null)w.lanes=lastLiveWidgets.lanes;
+            if(w.map==null)w.map=lastLiveWidgets.map;
         }
         if(!actualManeuver(w.maneuver,foreground)){
             if(foreground || !routeArmed) {
