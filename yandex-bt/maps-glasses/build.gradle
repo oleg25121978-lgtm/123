@@ -1,0 +1,7 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'ru.rokidhud.maps31.glasses'
+    compileSdk 35
+    defaultConfig { applicationId 'ru.rokidhud.maps31.glasses'; minSdk 31; targetSdk 32; versionCode 1; versionName '31.1.5-probe1' }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
