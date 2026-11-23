@@ -63,9 +63,12 @@ jobs:
             # Verify the PixelCopy pathway used for a genuine MapKit GPU surface.
             adb logcat -c
             adb shell am start -W -n ru.rokidhud.mapsrelay.compiler/ru.rokidhud.mapsrelay.HudGpuMapTestActivity
-            sleep 9
-            adb logcat -d -s MapGPUProbe:I MapGPUProbe:E | tee hud-gpu-log.txt
-            grep -q "PASS PixelCopy SurfaceView 125x111" hud-gpu-log.txt
+            sleep 12
+            adb logcat -d > hud-gpu-all-logcat.txt
+            grep -E 'MapGPUProbe|Maps31HUDMiniMap|AndroidRuntime|FATAL EXCEPTION' hud-gpu-all-logcat.txt | tail -80 | tee hud-gpu-log.txt || true
+            gpu_pass=0
+            if grep -q "PASS PixelCopy SurfaceView 125x111" hud-gpu-log.txt; then gpu_pass=1; fi
+            echo "PixelCopy test pass=$gpu_pass"
             # Verify a foreground connected-device service survives minimization.
             adb shell am start-foreground-service -n ru.rokidhud.mapsrelay.compiler/ru.rokidhud.mapsrelay.MapsHudKeepAliveService
             sleep 2
@@ -74,6 +77,7 @@ jobs:
             adb shell dumpsys activity services ru.rokidhud.mapsrelay.compiler | tee hud-service-log.txt
             grep -q 'MapsHudKeepAliveService' hud-service-log.txt
             echo 'PASS Maps31 keepalive service survives HOME'
+            test "$gpu_pass" -eq 1
       - name: Save Android emulator screenshot as workflow artifact
         uses: actions/upload-artifact@v4
         if: always()
@@ -84,6 +88,7 @@ jobs:
             hud-preview-log.txt
             hud-all-logcat.txt
             hud-gpu-log.txt
+            hud-gpu-all-logcat.txt
             hud-service-log.txt
       - name: Publish screenshot to branch (sample/test fixture, not real Yandex route)
         if: success()
