@@ -61,6 +61,7 @@ public final class MapsHudProvider extends ContentProvider {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private volatile byte[] frame;
     private volatile byte[] lastGoodFrame;
+    private byte[] lastNativeFrame; // compare UI to UI, NOT to notification PNG
     private long lastGoodFrameAt;
     private String lastNotificationIdentity;
     private long lastNotificationAt;
@@ -434,10 +435,11 @@ public final class MapsHudProvider extends ContentProvider {
                     // View tree while the navigation session itself advances.
                     // Re-encoding the SAME pixels is not a fresh route update.
                     boolean updated=foreground ||
-                        lastGoodFrame==null ||
-                        !java.util.Arrays.equals(data,lastGoodFrame);
+                        lastNativeFrame==null ||
+                        !java.util.Arrays.equals(data,lastNativeFrame);
                     if(updated){
                         frame=data;
+                        lastNativeFrame=data;
                         lastGoodFrame=data;
                         lastGoodFrameAt=System.currentTimeMillis();
                         if(!foreground)Log.i(TAG,"Background native guidance frame changed");
@@ -538,6 +540,7 @@ public final class MapsHudProvider extends ContentProvider {
         lastLiveWidgets=null;
         frame=null;
         lastGoodFrame=null;
+        lastNativeFrame=null;
         lastGoodFrameAt=0;
         lastNotificationAt=0;
         lastNotificationIdentity=null;
