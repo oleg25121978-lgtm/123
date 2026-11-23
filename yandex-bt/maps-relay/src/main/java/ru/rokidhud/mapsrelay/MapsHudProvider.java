@@ -368,10 +368,10 @@ public final class MapsHudProvider extends ContentProvider {
     private void sample(){
         Activity a=activity.get();
         if(a==null||a.isDestroyed()||a.isFinishing()){
-            frame=recentFrame();return;
+            frame=backgroundFrame();return;
         }
         View root=a.getWindow()==null?null:a.getWindow().getDecorView();
-        if(root==null){frame=recentFrame();return;}
+        if(root==null){frame=backgroundFrame();return;}
         Widgets w=new Widgets();
         find(root,w,0);
         // Once a real route has been confirmed, retain *those same* native
@@ -396,7 +396,7 @@ public final class MapsHudProvider extends ContentProvider {
                 // or navigation UI dismissed. Clear the cached maneuver.
                 clearRoute();
             }else{
-                frame=recentFrame();
+                frame=backgroundFrame();
                 idleTicks++;
                 if(idleTicks>35 && frame==null) stopKeepAlive();
             }
@@ -440,6 +440,67 @@ public final class MapsHudProvider extends ContentProvider {
               +" confirmedETA="+arrival(w.eta));
         }
     }
+    private void drawNotificationArrow(Canvas c,Paint p,int turn,int ox,int oy){
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setColor(GREEN);
+        p.setStrokeWidth(3.5f);
+        android.graphics.Path shape=new android.graphics.Path();
+        c.save();
+        c.translate(ox,oy);
+        if(turn==-1){
+            shape.moveTo(-15,23);shape.lineTo(-15,-5);shape.lineTo(16,-5);
+            shape.moveTo(5,-16);shape.lineTo(16,-5);shape.lineTo(5,6);
+        }else if(turn==1){
+            shape.moveTo(15,23);shape.lineTo(15,-5);shape.lineTo(-16,-5);
+            shape.moveTo(-5,-16);shape.lineTo(-16,-5);shape.lineTo(-5,6);
+        }else if(turn==2){
+            shape.moveTo(13,23);shape.lineTo(13,-2);
+            shape.cubicTo(13,-24,-14,-24,-14,-2);
+            shape.lineTo(-14,18);
+            shape.moveTo(-24,8);shape.lineTo(-14,18);shape.lineTo(-4,8);
+        }
+        c.drawPath(shape,p);
+        c.restore();
+        p.setStyle(Paint.Style.FILL);
+    }
+    private byte[] drawActualNotification(MapsHudNotificationSource.Snapshot n) {
+        Bitmap b=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);
+        try{
+            Canvas c=new Canvas(b);
+            c.drawColor(Color.TRANSPARENT,PorterDuff.Mode.CLEAR);
+            Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+            // No fake speed or lanes in notification mode. Real ETA only when
+            // explicitly labelled by Yandex, real turn/distance from its text.
+            if(n.arrival!=null)txt(c,p,"ETA "+n.arrival,14,605,13,GREEN);
+            if(n.turn!=0)drawNotificationArrow(c,p,n.turn,192,548);
+            if(n.turnDistance!=null)txt(c,p,n.turnDistance,221,554,17,WHITE);
+            miniMap.draw(c,new Rect(347,468,472,579)); // real cached map only
+            ByteArrayOutputStream stream=new ByteArrayOutputStream(18000);
+            return b.compress(Bitmap.CompressFormat.PNG,100,stream)
+                && stream.size()<=300000 ? stream.toByteArray():null;
+        }finally{b.recycle();}
+    }
+    private byte[] backgroundFrame(){
+        if(!routeArmed)return null;
+        Context ctx=getContext();
+        if(ctx!=null){
+            MapsHudNotificationSource.Snapshot n=MapsHudNotificationSource.read(ctx);
+            if(n!=null && n.hasManeuver()){
+                byte[] result=drawActualNotification(n);
+                if(result!=null){
+                    // A live OS notification is evidence that Yandex is still
+                    // publishing navigation. Keep USB/Bluetooth session alive.
+                    lastGoodFrame=result;
+                    lastGoodFrameAt=System.currentTimeMillis();
+                    return result;
+                }
+            }
+        }
+        return recentFrame();
+    }
+
     /** Last confirmed navigation frame; cannot be reused indefinitely. */
     private byte[] recentFrame() {
         if(!routeArmed || lastGoodFrame==null)return null;
