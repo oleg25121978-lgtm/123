@@ -61,7 +61,7 @@ public final class MapsHudNotificationSource {
                     low.contains("направо")||low.contains("налево")||
                     low.contains("разворот")||low.contains("съезд")||
                     low.contains("прямо")||low.contains("держитесь")||
-                    low.contains("двигайтесь")||low.contains("через ")||
+                    low.contains("двигайтесь")||low.contains("выезд")||
                     low.contains("exit ")||low.contains("turn ");
                 // Generic "маршрут 5 км" isn't distance to the next turn.
                 // Only explicit maneuver language may drive the HUD.
