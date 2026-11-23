@@ -145,6 +145,9 @@ public final class HudScreenshotActivity extends Activity {
             Field current=MapsHudMiniMap.class.getDeclaredField("current");
             current.setAccessible(true);
             current.set(map,fakeMap());
+            Field capturedAt=MapsHudMiniMap.class.getDeclaredField("lastCapturedAt");
+            capturedAt.setAccessible(true);
+            capturedAt.setLong(map,System.currentTimeMillis());
 
             Method render=MapsHudProvider.class.getDeclaredMethod(
                 "render",widgetsClass);
