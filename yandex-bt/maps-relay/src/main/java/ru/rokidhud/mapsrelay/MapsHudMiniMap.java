@@ -89,8 +89,11 @@ public final class MapsHudMiniMap {
         lastRequestAt=now;
         if(map==null||map.getWidth()<=DW||map.getHeight()<=DH)return;
         View image=findGraphic(map,0);
-        if(image instanceof SurfaceView)copySurface((SurfaceView)image);
-        else if(image instanceof TextureView)copyTexture((TextureView)image);
+        if(image instanceof SurfaceView) {
+            // PixelCopy was introduced in Android 8.0; stay installable on
+            // older phones without trying an unavailable framework class.
+            if(android.os.Build.VERSION.SDK_INT>=26)copySurface((SurfaceView)image);
+        } else if(image instanceof TextureView)copyTexture((TextureView)image);
     }
     private void copySurface(SurfaceView surface) {
         if(!surface.getHolder().getSurface().isValid())return;
