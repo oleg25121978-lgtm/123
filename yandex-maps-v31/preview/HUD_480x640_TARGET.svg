@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640" role="img" aria-label="Target preview of Yandex Maps HUD for Rokid, not a device screenshot">
+<title>HUD Rokid 480x640 – target composition mock, not actual screenshot</title>
+<rect width="480" height="640" fill="#050806"/>
+<g font-family="sans-serif" font-weight="400">
+<text x="14" y="516" font-size="10" fill="#5f9e72">СКОРОСТЬ</text>
+<text x="14" y="548" font-size="26" fill="#e6ffe8">62</text>
+<text x="71" y="545" font-size="11" fill="#5f9e72">км/ч</text>
+<text x="14" y="599" font-size="13" fill="#69f785">ETA 14:50</text>
+<g transform="translate(192 551) scale(.72)" fill="none" stroke="#69f785" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"><path d="M-17 24 L-17 -6 L18 -6 M6 -19 L18 -6 L6 8"/></g>
+<text x="220" y="546" font-size="17" fill="#e6ffe8">180 м</text>
+<text x="221" y="566" font-size="12" fill="#69f785">Направо</text>
+<g fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+<path stroke="#5f9e72" d="M182 612 L182 589 M174 598 L182 589 L190 598"/>
+<path stroke="#69f785" d="M219 612 L219 589 M211 598 L219 589 L227 598"/>
+<path stroke="#69f785" d="M255 612 L255 596 Q255 589 262 589 L273 589 M264 581 L273 589 L264 597"/>
+</g>
+<g transform="translate(347 468)">
+<rect width="125" height="111" rx="4" fill="#131d17" stroke="#375441" stroke-width="0.7"/>
+<g stroke="#5b7463" fill="none" stroke-width="1.3">
+<path d="M-5 23 L34 44 L72 13 L132 30"/>
+<path d="M12 -5 L26 30 L47 69 L33 118"/>
+<path d="M75 -4 L82 29 L64 65 L92 116"/>
+<path d="M-5 87 L25 76 L70 91 L132 79"/>
+<path d="M0 53 L45 57 L102 46 L130 57"/>
+</g>
+<g stroke="#98bca3" fill="none" stroke-width=".55">
+<path d="M-5 18 L38 35 L83 7 L132 20"/>
+<path d="M18 -5 L39 33 L46 64 L36 112"/>
+<path d="M60 -5 L68 38 L59 60 L77 115"/>
+<path d="M-5 92 L21 88 L81 98 L130 87"/>
+</g>
+<path d="M49 118 L49 82 L70 63 L91 63 L91 25" fill="none" stroke="#69f785" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="49" cy="82" r="3.8" fill="#ffffff"/>
+<circle cx="49" cy="82" r="2.25" fill="#69f785"/>
+</g>
+<text x="14" y="626" font-size="16" fill="#69f785">14:12</text>
+<g stroke="#69f785" fill="none" stroke-width="1.4" stroke-linecap="round">
+<path d="M356 607 L356 623 L362 618 L350 610 M356 607 L362 612 L350 620"/>
+<path d="M378 615 Q386 607 394 615 M381 618 Q386 613 391 618"/>
+<rect x="406" y="607" width="26" height="14" rx="2.2"/>
+</g>
+<rect x="409" y="610" width="15" height="8" fill="#69f785"/>
+<rect x="433" y="611" width="3" height="7" fill="#69f785"/>
+<text x="440" y="621" font-size="12" fill="#69f785">68</text>
+</g>
+</svg>
