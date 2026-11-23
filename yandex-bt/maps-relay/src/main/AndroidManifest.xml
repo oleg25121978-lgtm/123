@@ -1,5 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <!-- Build-only container; classes.dex is added to Yandex Maps as classes17.dex. -->
+  <!-- Build-only APK; when repacking, merge these exact declarations into
+       the user's original Yandex Maps APK manifest. -->
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-  <application android:label="Yandex Maps HUD integration module (build only)" android:allowBackup="false"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
+  <application android:label="Maps31 HUD Relay (compiler only)" android:allowBackup="false">
+    <service android:name="ru.rokidhud.mapsrelay.MapsHudKeepAliveService"
+             android:exported="false"
+             android:foregroundServiceType="connectedDevice"/>
+  </application>
 </manifest>
