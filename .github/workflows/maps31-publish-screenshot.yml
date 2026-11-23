@@ -1,0 +1,37 @@
+name: Publish verified Android HUD screenshot
+on:
+  push:
+    branches: [feature/maps31-bg-lanes-minimap-v2]
+    paths:
+      - '.github/workflows/maps31-publish-screenshot.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve Android emulator screenshot from verified run
+        uses: actions/download-artifact@v4
+        with:
+          name: Maps31-HUD-Android-Emulator-Sample-Screenshot
+          run-id: 45204036594
+          github-token: ${{ github.token }}
+          path: screenshot-artifact
+      - name: Verify authentic PNG and publish it with test provenance
+        run: |
+          find screenshot-artifact -maxdepth 6 -type f
+          src="$(find screenshot-artifact -name emulator-hud-sample.png -type f -print -quit)"
+          test -n "$src"
+          file "$src"
+          file "$src" | grep -q 'PNG image data, 480 x 640'
+          grep -r -q 'Maps31PreviewTest: PASS 480x640' screenshot-artifact/
+          mkdir -p yandex-maps-v31/preview
+          cp "$src" yandex-maps-v31/preview/emulator-hud-sample.png
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add yandex-maps-v31/preview/emulator-hud-sample.png
+          git commit -m "Publish actual emulator screenshot from sample-data HUD renderer test"
+          git push origin HEAD:feature/maps31-bg-lanes-minimap-v2
