@@ -1,6 +1,7 @@
 package ru.rokidhud.mapsrelay;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -60,6 +61,10 @@ public final class HudGpuMapTestActivity extends Activity {
         root.addView(surface,new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
+        // Start an unexported foreground service from THIS OWN visible app.
+        // An adb shell UID is correctly prohibited from launching this service.
+        startForegroundService(new Intent(this,MapsHudKeepAliveService.class));
+        Log.i(TAG,"Local foreground keepalive started from Activity");
         surface.getHolder().addCallback(new SurfaceHolder.Callback(){
             public void surfaceCreated(SurfaceHolder h){
                 try{drawRoads(h);main.postDelayed(HudGpuMapTestActivity.this::testCopy,450L);}
