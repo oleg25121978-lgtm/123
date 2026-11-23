@@ -423,8 +423,11 @@ public final class MapsHudProvider extends ContentProvider {
             lastLiveWidgets=w;
             ensureBluetooth(a);
             startKeepAlive(a); // Must be called BEFORE Activity.onPause().
-            miniMap.sample(w.map);
         }
+        // MapKit may retain a valid Surface even after Activity.onPause().
+        // Try to copy it in the background too; PixelCopy is asynchronous
+        // and safely refuses destroyed surfaces. Never use screen mirroring.
+        if(w.map!=null)miniMap.sample(w.map);
         Bitmap bmp=render(w);
         try{
             ByteArrayOutputStream stream=new ByteArrayOutputStream(25000);
