@@ -51,7 +51,7 @@ import java.util.regex.Pattern;
 public final class MapsHudProvider extends ContentProvider {
     private static final String TAG="YMaps31HUDProbe";
     private static final UUID SPP=UUID.fromString("6c8c5612-483f-4d21-94e9-0315d3d9e615");
-    private static final long PERIOD=1000L;
+    private static final long PERIOD=850L; // tested TEST9 Bluetooth framing cadence
     private static final int W=480,H=640;
     private static final int WHITE=Color.rgb(230,255,232);
     private static final int GREEN=Color.rgb(105,247,133);
@@ -61,7 +61,10 @@ public final class MapsHudProvider extends ContentProvider {
     private volatile boolean running=true;
     private WeakReference<Activity> activity=new WeakReference<>(null);
     private boolean foreground=false, permissionAsked=false;
-    private int detected=0;
+    private int navigationFrames=0;
+    private boolean routeArmed=false;
+    private View mostRecentManeuver;
+    private long lastActiveNavigationMs;
     private volatile BluetoothSocket client;
     private Thread serverThread;
     private volatile BluetoothServerSocket listener;
@@ -70,7 +73,9 @@ public final class MapsHudProvider extends ContentProvider {
         @Override public void onActivityResumed(Activity a){
             activity=new WeakReference<>(a);
             foreground=true;
-            detected=0;
+            navigationFrames=0;
+            routeArmed=false;
+            mostRecentManeuver=null;
         }
         @Override public void onActivityPaused(Activity a){
             if(activity.get()==a)foreground=false;
@@ -78,7 +83,8 @@ public final class MapsHudProvider extends ContentProvider {
         @Override public void onActivityDestroyed(Activity a){
             if(activity.get()==a){
                 activity=new WeakReference<>(null);
-                frame=null; detected=0; foreground=false;
+                frame=null; navigationFrames=0; routeArmed=false;
+                mostRecentManeuver=null; foreground=false;
             }
         }
         @Override public void onActivityCreated(Activity a,Bundle saved){}
@@ -224,17 +230,30 @@ public final class MapsHudProvider extends ContentProvider {
     private void sample(){
         Activity a=activity.get();
         if(a==null||a.isDestroyed()||a.isFinishing()){
-            frame=null;detected=0;return;
+            frame=null;navigationFrames=0;routeArmed=false;
+            mostRecentManeuver=null;return;
         }
         View root=a.getWindow()==null?null:a.getWindow().getDecorView();
-        if(root==null){frame=null;detected=0;return;}
+        if(root==null){frame=null;navigationFrames=0;routeArmed=false;return;}
         Widgets w=new Widgets();
         find(root,w,0);
         // Do nothing on license, onboarding, login or route selection.
         if(!actualManeuver(w.maneuver)){
-            frame=null;detected=0;return;
+            frame=null;navigationFrames=0;routeArmed=false;
+            mostRecentManeuver=null;return;
         }
-        if(++detected<3)return;
+        // Ported from TEST9: never arm on onboarding, stale view or route selection.
+        if(w.maneuver!=mostRecentManeuver) {
+            mostRecentManeuver=w.maneuver;
+            navigationFrames=0;
+            routeArmed=false;
+        }
+        if(!routeArmed){
+            if(++navigationFrames<3)return;
+            routeArmed=true;
+            Log.i(TAG,"TEST9-style route gate armed for live Maps guidance widget");
+        }
+        lastActiveNavigationMs=System.currentTimeMillis();
         if(foreground)ensureBluetooth(a);
         Bitmap bmp=render(w);
         try{
@@ -244,7 +263,8 @@ public final class MapsHudProvider extends ContentProvider {
                 frame=data.length<=300000?data:null;
             }else frame=null;
         }finally{bmp.recycle();}
-        if(detected==3){
+        if(navigationFrames==3){
+            navigationFrames=4;
             Log.i(TAG,"Navigation widgets: maneuver="+w.maneuver.getClass().getName()
               +" eta="+(w.eta!=null)+" speed="+(w.speed!=null)
               +" confirmedETA="+arrival(w.eta));
