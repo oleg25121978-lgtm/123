@@ -65,9 +65,14 @@ public final class GlassesActivity extends Activity {
         super.onCreate(bundle);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        // Transparent window; on Rokid additive displays black/off pixels also let real world through.
-        getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        // An Android translucent Activity leaves Rokid Launcher visible under the HUD.
+        // Use a real fullscreen opaque surface: black = unlit pixels on optical Rokid,
+        // while the exported HUD's graphics remain the same.
+        getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_FULLSCREEN |
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         phone=getPreferences(MODE_PRIVATE).getString("phone",null);
         // This receiver runs on Rokid: all indicators come from the glasses themselves.
         IntentFilter battery=new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
@@ -150,10 +155,10 @@ public final class GlassesActivity extends Activity {
         reconnect=true;status="Соединение…";live=false;
         display=new View(this){
             private final Paint p=new Paint(3);
-            {setBackgroundColor(Color.TRANSPARENT);setOnLongClickListener(v->{disconnect();chooser();return true;});}
+            {setBackgroundColor(Color.BLACK);setOnLongClickListener(v->{disconnect();chooser();return true;});}
             @Override protected void onDraw(Canvas c){
                 super.onDraw(c);
-                c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                c.drawColor(Color.BLACK);
                 Bitmap current=frame;
                 int w=getWidth(),h=getHeight();
                 // The source bitmap is 480x640 with its original alpha channel;
