@@ -62,11 +62,13 @@ public final class HudBottomLayout {
     private static void arrow(Canvas c,Paint p,int turn,float cx,float cy) {
         p.setStyle(Paint.Style.STROKE);
         p.setColor(GREEN);
-        p.setStrokeWidth(5.5f);
+        p.setStrokeWidth(4.4f);
         p.setStrokeCap(Paint.Cap.ROUND);
         p.setStrokeJoin(Paint.Join.ROUND);
         c.save();
         c.translate(cx,cy);
+        // Route arrow ~30% smaller, positioned lower; leave lane arrows larger.
+        c.scale(0.72f,0.72f);
         Path path=new Path();
         if(turn==-1) { // TEST9 original onDraw: -1 = right
             path.moveTo(-17,24);path.lineTo(-17,-6);path.lineTo(18,-6);
@@ -106,13 +108,13 @@ public final class HudBottomLayout {
         List<?> recommended=b instanceof List?(List<?>)b:null;
         if(arrows.isEmpty())return;
         int n=Math.min(arrows.size(),5);
-        float start=178;
+        float start=171;
         for(int i=0;i<n;i++) {
             Object item=arrows.get(i);
             boolean active=recommended!=null && i<recommended.size()
                 && Boolean.TRUE.equals(recommended.get(i));
             String val=item==null?"":String.valueOf(item);
-            text(c,p,fit(val,26,p,15f),start+i*27,612,15,active?GREEN:MUTED,active);
+            text(c,p,fit(val,30,p,18f),start+i*31,610,18,active?GREEN:MUTED,active);
         }
     }
     private static boolean miniMap(Canvas c,View hud,RectF bounds) {
@@ -121,8 +123,20 @@ public final class HudBottomLayout {
             if(!(route instanceof List) || ((List<?>)route).size()<2)return false;
             Method m=hud.getClass().getDeclaredMethod("drawMiniMap",Canvas.class,RectF.class);
             m.setAccessible(true);
+            // drawMiniMap uses full-size fixed pixel strokes/vehicle markers.
+            // Merely shrinking RectF does NOT shrink those thicknesses.
+            // Supply a 7x virtual viewport, then scale every vector/marker by 1/7
+            // within the same 125x111 display box. Clip prevents road spillover.
+            final float shrink=7f;
             c.save();
-            try { m.invoke(hud,c,bounds); } finally { c.restore(); }
+            try {
+                c.clipRect(bounds);
+                c.translate(bounds.left,bounds.top);
+                c.scale(1f/shrink,1f/shrink);
+                RectF virtualBounds=new RectF(
+                    0f,0f,bounds.width()*shrink,bounds.height()*shrink);
+                m.invoke(hud,c,virtualBounds);
+            } finally { c.restore(); }
             return true;
         } catch(Throwable ignored){return false;}
     }
@@ -136,25 +150,27 @@ public final class HudBottomLayout {
         double metres=valueDouble(hud,"distanceMeters",Double.NaN);
         String road=valueString(hud,"road");
 
-        // True alpha background: all pixels except glyphs and mini-map stay transparent.
-        text(out,p,"СКОРОСТЬ",14,472,11,MUTED,false);
-        text(out,p,speed>=0 ? String.valueOf(speed) : "—",14,516,37,WHITE,true);
-        text(out,p,"км/ч",78,511,12,MUTED,false);
+        // Bottom HUD, no opaque panels. Smaller regular weight for speed.
+        // Time on the bottom line comes from Rokid itself (receiver app).
+        text(out,p,"СКОРОСТЬ",14,516,10,MUTED,false);
+        text(out,p,speed>=0 ? String.valueOf(speed) : "—",14,547,26,WHITE,false);
+        text(out,p,"км/ч",71,545,11,MUTED,false);
         if(limit>0 && limit<200) {
-            p.setStyle(Paint.Style.STROKE);p.setColor(GREEN);p.setStrokeWidth(2.5f);
-            out.drawCircle(124,499,16,p);
+            p.setStyle(Paint.Style.STROKE);p.setColor(GREEN);p.setStrokeWidth(1.6f);
+            out.drawCircle(123,536,13,p);
             String n=String.valueOf(limit);
-            text(out,p,n,124-n.length()*4.4f,504,13,GREEN,true);
+            text(out,p,n,123-n.length()*4.1f,541,12,GREEN,false);
         }
-        // Route ETA is not exposed by the existing TEST9 NavigationView:
-        // do not calculate or invent a time from the next-turn distance.
-        text(out,p,"ETA —",14,559,15,MUTED,false);
-        // Current time is drawn by glasses, using its own system clock.
+        // Only Yandex-confirmed ETA is acceptable; this data is not wired yet.
+        text(out,p,"ETA —",14,596,13,MUTED,false);
 
-        arrow(out,p,turn,198,499);
-        text(out,p,distance(metres),231,496,22,WHITE,true);
-        text(out,p,turnLabel(turn),232,520,15,GREEN,false);
-        if(!road.isEmpty())text(out,p,fit(road,173,p,12f),162,571,12,MUTED,false);
+        // Maneuver is smaller, lower and visually secondary to real road view.
+        arrow(out,p,turn,193,545);
+        text(out,p,distance(metres),219,542,17,WHITE,false);
+        text(out,p,turnLabel(turn),220,563,12,GREEN,false);
+        if(!road.isEmpty()) {
+            text(out,p,fit(road,166,p,11f),166,585,11,MUTED,false);
+        }
         lanes(out,p,hud);
 
         boolean hasMini=miniMap(out,hud,new RectF(345,461,470,572));
